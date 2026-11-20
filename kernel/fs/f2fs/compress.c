@@ -178,7 +178,7 @@ static int lzo_compress_pages(struct compress_ctx *cc)
 {
 	int ret;
 
-	ret = lzo1x_1_compress(cc->rbuf, cc->rlen, cc->cbuf->cdata,
+	ret = lzo1x_1_compress_safe(cc->rbuf, cc->rlen, cc->cbuf->cdata,
 					&cc->clen, cc->private);
 	if (ret != LZO_E_OK) {
 		printk_ratelimited("%sF2FS-fs (%s): lzo compress failed, ret:%d\n",

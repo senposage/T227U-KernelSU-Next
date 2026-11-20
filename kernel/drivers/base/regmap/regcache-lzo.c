@@ -48,7 +48,7 @@ static int regcache_lzo_compress(struct regcache_lzo_ctx *lzo_ctx)
 	size_t compress_size;
 	int ret;
 
-	ret = lzo1x_1_compress(lzo_ctx->src, lzo_ctx->src_len,
+	ret = lzo1x_1_compress_safe(lzo_ctx->src, lzo_ctx->src_len,
 			       lzo_ctx->dst, &compress_size, lzo_ctx->wmem);
 	if (ret != LZO_E_OK || compress_size > lzo_ctx->dst_len)
 		return -EINVAL;
