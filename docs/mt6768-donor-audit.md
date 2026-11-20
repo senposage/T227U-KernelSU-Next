@@ -49,8 +49,9 @@ not produced a release.
 - The donor's full modern CPUFreq QoS/policy series: too invasive for the MTK
   4.19 driver and current PPM guard. Individual race fixes are reviewed
   separately.
-- F2FS discard-thread UAF (`0a72eeb86ef5`): not applicable. This T227U F2FS
-  fork lacks the discard-thread call that creates the vulnerable lifetime.
+- F2FS discard-thread UAF (`0a72eeb86ef5`): prior applicability assessment was
+  incorrect. The T227U fork has the discard worker; the corrected teardown
+  ordering is now carried on `codex/t227u-f2fs-bringup`.
 
 ## Deferred pending a dedicated test plan
 
