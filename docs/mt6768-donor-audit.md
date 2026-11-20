@@ -63,6 +63,18 @@ not produced a release.
 - Policy/tuning changes such as linear scheduler scaling and vmstat cadence:
   behavior changes, not correctness fixes; require benchmarks before adoption.
 
+## Performance candidates (not staged)
+
+- F2FS checkpoint reduction (`72c6b13f468e`): may reduce metadata/fsync
+  overhead after directory-xattr updates. It changes checkpoint triggering and
+  must pass power-loss and filesystem stress testing before it is considered.
+- F2FS linear dentry search (`df304b987283`): a Unicode casefold correctness
+  fallback, not a general directory-lookup optimization; it can increase work
+  on the fallback path.
+- CPUFreq QoS/policy conversion and scheduler scaling: potentially useful
+  latency-policy work, but incompatible as isolated imports with this MT6765
+  CPUFreq/PPM implementation. Evaluate only as a dedicated, benchmarked port.
+
 ## Release rule
 
 No audit-branch change may be released until it has a full T227U build, the
