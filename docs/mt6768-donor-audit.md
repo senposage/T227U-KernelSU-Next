@@ -30,25 +30,31 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | F2FS device path | `8d6d68ddee44` | Reserves a path terminator after copying the maximum on-disk device-path length. |
 | LZ4 | `f75893e27f63` | Stops partial decompression before reading a match offset beyond corrupt compressed input. |
 | MTK MSDC | `1fc9b7e48231`, `ab75a549f9fa` | Makes DMA preparation data-scoped and refuses a request when DMA mapping fails, preventing commands from reaching an invalid DMA mapping. |
+| Scheduler logging | Local correction | Demotes the expected pre-domain EAS initialization retry from `pr_info` and avoids emitting the paired initializer banner before a domain exists. |
 
 Each affected object compiled with the preserved T227U r7 configuration in a
 separate audit output directory. These commits are not yet in `main` and have
 not produced a release.
 
-## Explicitly rejected for T227U/GSI
+## Re-reviewed applicability
 
 - In-tree Gen4M WLAN and AXI patches (`f95aeae0c24d`, `3b4c912ef106`): T227U
   boots Samsung's immutable Gen4M vendor modules. Replacing that radio stack
   would require matching WMT/conninfra, firmware, transport, HAL, and vendor
   integration. Revisit only for a full ROM/vendor project.
-- MT6768 OPP mapping (`c3fb3ee65509`) and its uPower coupling: hardwires a
-  different SoC topology into scheduler core and conflicts with T227U's custom
-  PPM/user-policy work.
+- MT6768 OPP mapping (`c3fb3ee65509`): the earlier hardware-specific
+  classification was incorrect. The donor reads active uPower tables at
+  runtime; it does not hard-code MT6768 frequencies. It is not ready to port
+  unchanged, however: it snapshots stock capacities once, while this tree has
+  runtime-selectable MT6765 OC bins. A T227U port must derive capacities from
+  the live CPUFreq/OC table and refresh them when the exposed bin set changes.
+  This is a concrete local prerequisite, not a rejection.
 - MT6768/Mali GPU, Xiaomi device-tree, camera, display, audio, touch,
   fingerprint, charging, and vendor connectivity changes: hardware-specific.
-- The donor's full modern CPUFreq QoS/policy series: too invasive for the MTK
-  4.19 driver and current PPM guard. Individual race fixes are reviewed
-  separately.
+- The donor's full modern CPUFreq QoS/policy series: it cannot be taken as one
+  atomic import into the MTK 4.19/PPM path, but each correctness fix and each
+  policy change is being reviewed as a port candidate. A dependency or a
+  benchmark requirement is not itself a rejection.
 - F2FS discard-thread UAF (`0a72eeb86ef5`): prior applicability assessment was
   incorrect. The T227U fork has the discard worker; the corrected teardown
   ordering is now carried on `codex/t227u-f2fs-bringup`.

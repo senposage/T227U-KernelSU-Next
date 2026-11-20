@@ -155,12 +155,12 @@ void init_perf_order_domains(struct perf_domain *pd)
 	struct upower_tbl *tbl;
 	int cpu;
 
-	pr_info("Initializing perf order domain:\n");
-
 	if (!pd) {
-		pr_info("Perf domain is not ready!\n");
+		pr_debug("Perf domain is not ready\n");
 		return;
 	}
+
+	pr_info("Initializing perf order domain:\n");
 
 	for (; pd; pd = pd->next) {
 		domain = (struct perf_order_domain *)
