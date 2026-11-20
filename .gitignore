@@ -1,0 +1,18 @@
+# Generated kernel build products (reproducible from kernel/)
+kernel/out-t227u/
+kernel/*.tar
+kernel/*.tar.gz
+kernel/*.zip
+
+# Tool and editor artifacts
+*.log
+.DS_Store
+# Local Android-kernel build output and distribution artifacts stay out of
+# the source repository. Publish flashable packages through GitHub Releases.
+kernel/out-*/
+releases/
+*.zip
+*.apk
+anykernel/Image.gz
+anykernel/dtb
+anykernel/tools/
