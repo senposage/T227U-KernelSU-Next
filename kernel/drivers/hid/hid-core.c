@@ -1578,6 +1578,13 @@ int hid_report_raw_event(struct hid_device *hid, int type, u8 *data, u32 size,
 	u8 *cdata = data;
 	int ret = 0;
 
+	/* Backport 4f9f722a64fe: numbered reports need a report-ID byte. */
+	if (report_enum->numbered && size < 1) {
+		hid_warn_ratelimited(hid,
+			"Event data for numbered report is too short %d\n", size);
+		return -EINVAL;
+	}
+
 	report = hid_get_report(report_enum, data);
 	if (!report)
 		goto out;
