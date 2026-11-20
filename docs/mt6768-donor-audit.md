@@ -20,6 +20,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 | ZRAM backing device | `a12a03051ef9` | Rejects a zero-sized, including self-referential, writeback backing device before setup. |
 | F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
+| F2FS inode lifetime | `e408ed9f36b0` | Removes an evicted inode from dirty-meta tracking before checkpoint code can dereference it. |
 | F2FS device path | `8d6d68ddee44` | Reserves a path terminator after copying the maximum on-disk device-path length. |
 | LZ4 | `f75893e27f63` | Stops partial decompression before reading a match offset beyond corrupt compressed input. |
 | MTK MSDC | `1fc9b7e48231`, `ab75a549f9fa` | Makes DMA preparation data-scoped and refuses a request when DMA mapping fails, preventing commands from reaching an invalid DMA mapping. |
