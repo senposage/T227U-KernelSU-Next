@@ -46,6 +46,7 @@
 #include <linux/vmalloc.h>
 #include <linux/preempt.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>
 #include <linux/debugfs.h>
@@ -2461,14 +2462,18 @@ static int zs_register_shrinker(struct zs_pool *pool)
 #define ZS_COMPACT_INTERVAL	1
 
 struct zs_pool *g_pool;
+static DEFINE_MUTEX(zs_compact_lock);
 
 static void do_zs_compact(struct work_struct *work)
 {
 	unsigned long pages_freed;
+
+	mutex_lock(&zs_compact_lock);
 	if (g_pool) {
 		pages_freed = zs_compact(g_pool);
 		pr_info("zs_compact pages_freed=%d", pages_freed);
 	}
+	mutex_unlock(&zs_compact_lock);
 }
 static DECLARE_WORK(zs_compact_work, do_zs_compact);
 
@@ -2497,12 +2502,15 @@ void try_schedule_zs_compact()
 {
 	static unsigned long resume = INITIAL_JIFFIES;
 
+	mutex_lock(&zs_compact_lock);
 	if (time_is_before_jiffies(resume) &&
+			g_pool &&
 			!work_pending(&zs_compact_work) &&
 			zs_compactable(g_pool, ZS_COMPACT_THRESHOLD)) {
 		resume = jiffies + ZS_COMPACT_INTERVAL * HZ;
 		schedule_work(&zs_compact_work);
 	}
+	mutex_unlock(&zs_compact_lock);
 }
 
 /**
@@ -2615,8 +2623,10 @@ struct zs_pool *zs_create_pool(const char *name)
 	if (zs_register_migration(pool))
 		goto err;
 
+	mutex_lock(&zs_compact_lock);
 	if (!g_pool)
 		g_pool = pool;
+	mutex_unlock(&zs_compact_lock);
 
 	register_on_app_mmput_callback(try_schedule_zs_compact);
 
@@ -2639,6 +2649,17 @@ EXPORT_SYMBOL_GPL(zs_create_pool);
 void zs_destroy_pool(struct zs_pool *pool)
 {
 	int i;
+
+	/*
+	 * The app-mmput callback and its work item use g_pool.  This pool can
+	 * be destroyed when zram is reset, so detach it before freeing pool
+	 * metadata and wait for any in-flight compaction to complete.
+	 */
+	mutex_lock(&zs_compact_lock);
+	if (g_pool == pool)
+		g_pool = NULL;
+	mutex_unlock(&zs_compact_lock);
+	cancel_work_sync(&zs_compact_work);
 
 	zs_unregister_shrinker(pool);
 	zs_unregister_migration(pool);

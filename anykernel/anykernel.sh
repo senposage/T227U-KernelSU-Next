@@ -32,8 +32,18 @@ if [ -f "$RAMDISK/.backup/.magisk" ]; then
   rm -rf "$RAMDISK/overlay.d" "$RAMDISK/.backup";
 fi
 
-if [ -f "$RAMDISK/init.rc" ] && ! grep -q "init.sunflower-performance.rc" "$RAMDISK/init.rc"; then
-  echo 'import /init.sunflower-performance.rc' >> "$RAMDISK/init.rc"
+# Remove obsolete profile-tuning hooks. Frequency, GPU, I/O, and VM policy
+# are user-controlled through Kernel Auditor, never forced from the ramdisk.
+rm -f "$RAMDISK/sbin/sunflower-performance.sh" "$RAMDISK/sbin/t225-perf-extra.sh";
+if [ -f "$RAMDISK/init.rc" ]; then
+  sed -i '/init\.sunflower-performance\.rc/d' "$RAMDISK/init.rc"
+fi
+
+# Vendor init enables Samsung RamPlus unconditionally at boot complete. This
+# scoped compatibility hook disables that automatic swap device afterwards,
+# leaving zram under explicit user control.
+if [ -f "$RAMDISK/init.rc" ] && ! grep -q "init.t227u-ramplus.rc" "$RAMDISK/init.rc"; then
+  echo 'import /init.t227u-ramplus.rc' >> "$RAMDISK/init.rc"
 fi
 write_boot;
 
