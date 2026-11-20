@@ -13,9 +13,6 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | --- | --- | --- |
 | HID | `0c05d983e57a`, `4f9f722a64fe` | Adds a missing ratelimited helper and rejects empty numbered HID reports before the report-ID read. |
 | Schedutil | `0ab005ccb85a` | Allows a queued deferred update to use the newest demand sample. Does not alter PPM, governor limits, or OC ceilings. |
-| Binder | `eeef72d8cae5` | Synchronizes access to a transaction target process while freeing the transaction. |
-| Binder reader availability | `229670361c29` | Lets poll-based, not-yet-registered readers be selected for process work instead of hanging. |
-| Binder transaction log | `544b1575a0e1` | Copies the BinderFS context name into the transaction log, preventing a stale-pointer read after BinderFS teardown. |
 | F2FS xattrs | `75b7b736d4b5`, `f9dfa44be0fb` | Validates malformed xattr entries both before handler lookup and while finding the last entry, preventing corrupt `/data` metadata from becoming an out-of-bounds access. |
 | CPUFreq | `4f590db06867` | Holds the CPU read lock across governor suspend to avoid a hotplug/suspend race. |
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
@@ -64,6 +61,12 @@ not produced a release.
 
 ## Deferred pending a dedicated test plan
 
+- **P1 — Binder backport validation:** `eeef72d8cae5`, `229670361c29`, and
+  `544b1575a0e1` are temporarily reverted for an A/B test after Asphalt
+  showed repeated `FAILED BINDER TRANSACTION` messages followed by a reboot.
+  The reader-availability change alters Binder delivery eligibility and is the
+  primary candidate. Do not restore any of the three without a captured
+  Binder-driver failure signature and a targeted test plan.
 - **P2 — FPSGO/XGF vendor-module parity:** `fpsgo.ko` fails to load because
   the source-built kernel does not export its required XGF interfaces. The
   baseline CPUFreq governor and PPM paths remain functional, but frame-aware
