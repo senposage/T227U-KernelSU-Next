@@ -23,6 +23,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 | ZRAM backing device | `a12a03051ef9` | Rejects a zero-sized, including self-referential, writeback backing device before setup. |
 | ZRAM state reader | `26df52b3e816` | Stops the debug state reader before `snprintf()` can consume the final byte of its userspace buffer. |
+| ZRAM compaction stats | `638c954653d4` | Reads the already-atomic total through `atomic_long_read()`, keeping the exported compaction count correct under concurrent reclaim and manual compaction. |
 | F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
 | F2FS inode lifetime | `e408ed9f36b0` | Removes an evicted inode from dirty-meta tracking before checkpoint code can dereference it. |
 | F2FS GC and truncation | `45c9da086dde`, `6735aa9e3303`, `37f6006362a2` | Rejects special-file inodes during GC, initializes the physical-block extent-map field, and releases a node page on truncation failure. |
