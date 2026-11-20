@@ -39,12 +39,6 @@ if [ -f "$RAMDISK/init.rc" ]; then
   sed -i '/init\.sunflower-performance\.rc/d' "$RAMDISK/init.rc"
 fi
 
-# Vendor init enables Samsung RamPlus unconditionally at boot complete. This
-# scoped compatibility hook disables that automatic swap device afterwards,
-# leaving zram under explicit user control.
-if [ -f "$RAMDISK/init.rc" ] && ! grep -q "init.t227u-ramplus.rc" "$RAMDISK/init.rc"; then
-  echo 'import /init.t227u-ramplus.rc' >> "$RAMDISK/init.rc"
-fi
 write_boot;
 
 # Only clean Magisk's data after write_boot has completed successfully.  Keep
