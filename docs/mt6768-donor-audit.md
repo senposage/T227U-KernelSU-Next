@@ -38,10 +38,13 @@ not produced a release.
 
 ## Re-reviewed applicability
 
-- In-tree Gen4M WLAN and AXI patches (`f95aeae0c24d`, `3b4c912ef106`): T227U
-  boots Samsung's immutable Gen4M vendor modules. Replacing that radio stack
-  would require matching WMT/conninfra, firmware, transport, HAL, and vendor
-  integration. Revisit only for a full ROM/vendor project.
+- Gen4M WLAN (`f95aeae0c24d`, `3b4c912ef106`): each is a reasonable small
+  driver fix in isolation, but this source tree deliberately leaves
+  `vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m` external and
+  builds the matching Samsung vendor module. The files the commits modify are
+  absent here. Porting them requires the matching vendor WLAN source/module
+  package and a radio regression suite; this is a source-availability and ABI
+  boundary, not a generic “MediaTek” rejection.
 - MT6768 OPP mapping (`c3fb3ee65509`): the earlier hardware-specific
   classification was incorrect. The donor reads active uPower tables at
   runtime; it does not hard-code MT6768 frequencies. It is not ready to port
