@@ -9,6 +9,9 @@
 
 #include <linux/nospec.h>
 
+#include <linux/cpufreq.h>
+#include <linux/sort.h>
+
 #include <linux/kcov.h>
 #include <linux/scs.h>
 
@@ -761,6 +764,107 @@ unsigned int sysctl_sched_uclamp_util_max = SCHED_CAPACITY_SCALE;
 /* All clamps are required to be less or equal than these values */
 static struct uclamp_se uclamp_default[UCLAMP_CNT];
 
+#ifdef CONFIG_UCLAMP_MAP_OPP
+#define UCLAMP_OPP_CAPACITY_MAX	64
+
+static DEFINE_MUTEX(uclamp_opp_capacity_lock);
+static unsigned int uclamp_opp_capacity_tbl[UCLAMP_OPP_CAPACITY_MAX];
+static unsigned int uclamp_opp_capacity_count;
+static bool uclamp_opp_capacity_ready;
+
+static int uclamp_opp_capacity_compare(const void *lhs, const void *rhs)
+{
+	unsigned int lhs_cap = *(const unsigned int *)lhs;
+	unsigned int rhs_cap = *(const unsigned int *)rhs;
+
+	if (lhs_cap < rhs_cap)
+		return -1;
+	if (lhs_cap > rhs_cap)
+		return 1;
+	return 0;
+}
+
+void uclamp_init_opp_capacity_tbl(void)
+{
+	struct cpufreq_policy *seen[NR_CPUS] = { NULL };
+	struct cpufreq_policy *policy;
+	struct cpufreq_frequency_table *pos;
+	unsigned int count = 0;
+	unsigned int seen_count = 0;
+	unsigned int cpu, i, max_freq, scale, cap;
+
+	if (READ_ONCE(uclamp_opp_capacity_ready))
+		return;
+
+	mutex_lock(&uclamp_opp_capacity_lock);
+	if (uclamp_opp_capacity_ready)
+		goto out;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get_raw(cpu);
+		if (!policy || !policy->freq_table)
+			continue;
+
+		for (i = 0; i < seen_count; i++)
+			if (seen[i] == policy)
+				break;
+		if (i != seen_count)
+			continue;
+		seen[seen_count++] = policy;
+
+		max_freq = 0;
+		cpufreq_for_each_valid_entry(pos, policy->freq_table)
+			max_freq = max(max_freq, pos->frequency);
+		if (!max_freq)
+			continue;
+
+		scale = arch_scale_cpu_capacity(NULL, cpu);
+		cpufreq_for_each_valid_entry(pos, policy->freq_table) {
+			cap = DIV_ROUND_UP_ULL((u64)pos->frequency * scale,
+					       max_freq);
+			if (count < ARRAY_SIZE(uclamp_opp_capacity_tbl))
+				uclamp_opp_capacity_tbl[count++] = cap;
+		}
+	}
+
+	if (!count)
+		goto out;
+
+	sort(uclamp_opp_capacity_tbl, count,
+	     sizeof(uclamp_opp_capacity_tbl[0]),
+	     uclamp_opp_capacity_compare, NULL);
+
+	uclamp_opp_capacity_count = 1;
+	for (i = 1; i < count; i++)
+		if (uclamp_opp_capacity_tbl[i] !=
+		    uclamp_opp_capacity_tbl[uclamp_opp_capacity_count - 1])
+			uclamp_opp_capacity_tbl[uclamp_opp_capacity_count++] =
+				uclamp_opp_capacity_tbl[i];
+	if (!uclamp_opp_capacity_count)
+		uclamp_opp_capacity_count = 1;
+	uclamp_opp_capacity_tbl[uclamp_opp_capacity_count - 1] =
+		SCHED_CAPACITY_SCALE;
+
+	smp_wmb();
+	WRITE_ONCE(uclamp_opp_capacity_ready, true);
+out:
+	mutex_unlock(&uclamp_opp_capacity_lock);
+}
+
+unsigned int uclamp_map_opp_capacity(unsigned int cap)
+{
+	unsigned int i;
+
+	if (!READ_ONCE(uclamp_opp_capacity_ready) || !cap)
+		return cap;
+
+	for (i = 0; i < READ_ONCE(uclamp_opp_capacity_count); i++)
+		if (uclamp_opp_capacity_tbl[i] >= cap)
+			return uclamp_opp_capacity_tbl[i];
+	return SCHED_CAPACITY_SCALE;
+}
+#endif
+
 inline void uclamp_se_set(struct uclamp_se *uc_se,
 				 unsigned int value, bool user_defined)
 {
@@ -1093,6 +1197,12 @@ int sysctl_sched_uclamp_handler(struct ctl_table *table, int write,
 		goto undo;
 	}
 
+	uclamp_init_opp_capacity_tbl();
+	sysctl_sched_uclamp_util_min =
+		uclamp_map_opp_capacity(sysctl_sched_uclamp_util_min);
+	sysctl_sched_uclamp_util_max =
+		uclamp_map_opp_capacity(sysctl_sched_uclamp_util_max);
+
 	if (old_min != sysctl_sched_uclamp_util_min) {
 		uclamp_se_set(&uclamp_default[UCLAMP_MIN],
 			      sysctl_sched_uclamp_util_min, false);
@@ -1180,12 +1290,12 @@ static void __setscheduler_uclamp(struct task_struct *p,
 
 	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MIN) {
 		uclamp_se_set(&p->uclamp_req[UCLAMP_MIN],
-			      attr->sched_util_min, true);
+			      uclamp_map_opp_capacity(attr->sched_util_min), true);
 	}
 
 	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MAX) {
 		uclamp_se_set(&p->uclamp_req[UCLAMP_MAX],
-			      attr->sched_util_max, true);
+			      uclamp_map_opp_capacity(attr->sched_util_max), true);
 	}
 }
 
@@ -7630,9 +7740,11 @@ static ssize_t cpu_uclamp_write(struct kernfs_open_file *of, char *buf,
 		return req.ret;
 
 	mutex_lock(&uclamp_mutex);
+	uclamp_init_opp_capacity_tbl();
 	rcu_read_lock();
 
 	tg = css_tg(of_css(of));
+	req.util = uclamp_map_opp_capacity(req.util);
 	if (tg->uclamp_req[clamp_id].value != req.util)
 		uclamp_se_set(&tg->uclamp_req[clamp_id], req.util, false);
 

@@ -2361,6 +2361,17 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #ifdef CONFIG_UCLAMP_TASK
 extern struct mutex uclamp_mutex;
 
+#ifdef CONFIG_UCLAMP_MAP_OPP
+void uclamp_init_opp_capacity_tbl(void);
+unsigned int uclamp_map_opp_capacity(unsigned int cap);
+#else
+static inline void uclamp_init_opp_capacity_tbl(void) { }
+static inline unsigned int uclamp_map_opp_capacity(unsigned int cap)
+{
+	return cap;
+}
+#endif
+
 unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
 inline void uclamp_se_set(struct uclamp_se *uc_se,
 				 unsigned int value, bool user_defined);

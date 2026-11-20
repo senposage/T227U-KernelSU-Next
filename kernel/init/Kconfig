@@ -726,6 +726,15 @@ config UCLAMP_BUCKETS_COUNT
 
 	  If in doubt, use the default value.
 
+config UCLAMP_MAP_OPP
+	bool "Map utilization clamps to available CPU OPP capacities"
+	depends on UCLAMP_TASK && CPU_FREQ
+	default y
+	help
+	  Round requested utilization clamps up to the next capacity represented
+	  by the active CPUFreq table. This includes the T227U's exposed CPU
+	  overclock bins while preserving CPUFreq policy and thermal ceilings.
+
 choice
 	bool "Configure PELT speed for load/utilization tracking"
 	default PELT_HALFLIFE_16
