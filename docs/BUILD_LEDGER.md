@@ -20,6 +20,23 @@ No artifact is a release merely because it builds.  A test ZIP must be marked
 `untested`, `booted`, `failed`, or `reverted` here after its device result is
 known.
 
+## Functional-trace gate
+
+Compilation is not evidence that a change functions correctly. Before code is
+committed or packaged, trace the changed behavior from its triggering event to
+the modified code and record the result in the commit body. The trace must
+explicitly check:
+
+1. The entry point and concrete call path used on this device.
+2. The real type, allocation/ownership, and lifetime of every changed object.
+3. Execution context and lock/sleeping constraints for every added primitive.
+4. ABI assumptions against the vendor modules and the post-link CRC result.
+5. A runtime test that exercises the path. Until it exists, label the result
+   **not yet tested**, never functional or releasable.
+
+The local Git configuration uses `.gitmessage-t227u` plus verbose staged diffs
+at commit time so this trace is visible while each commit is written.
+
 ## Common build inputs
 
 - Branch: `codex/t227u-f2fs-bringup`

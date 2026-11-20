@@ -1,0 +1,25 @@
+# <subsystem>: imperative summary (50 chars or fewer)
+#
+# Problem:
+# <Observed symptom and the evidence that establishes it.>
+#
+# Functional trace:
+# - Entry point / trigger:
+# - Call path to the changed code:
+# - Object ownership, ABI, and lifetime:
+# - Execution context / locking constraints:
+# - Why the old behaviour is wrong:
+#
+# Change:
+# - <Exact behavioral change.>
+#
+# Verification:
+# - Static review: <types, bounds, pointer validity, locking, error paths>
+# - Build: <exact config / result>
+# - Device/runtime: <actual test, or NOT YET TESTED>
+#
+# Risk and rollback:
+# - <Known risk and exact revert/rollback artifact.>
+#
+# Ledger:
+# - docs/BUILD_LEDGER.md: <build ID, or N/A for source-only changes>
