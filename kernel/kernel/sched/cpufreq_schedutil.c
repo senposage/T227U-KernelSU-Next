@@ -111,6 +111,9 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	 * limit once frequency change direction is decided, according
 	 * to the separate rate limits.
 	 */
+	/* A deferred update is still mutable; use the newest demand sample. */
+	if (sg_policy->work_in_progress)
+		return true;
 
 	delta_ns = time - sg_policy->last_freq_update_time;
 	return delta_ns >= sg_policy->min_rate_limit_ns;
