@@ -1,29 +1,58 @@
-# T227U KernelSU-Next kernel workspace
+# SM-T227U KernelSU-Next Kernel
 
-This repository tracks the editable T225-derived kernel source being adapted
-for the Samsung SM-T227U, its AnyKernel3 flash packaging, and the known-good
-release inputs.
+Custom Android 4.19 kernel source for the Samsung Galaxy Tab A7 Lite LTE
+(`SM-T227U`, `gta7lite`). This tree is derived from the related T225 source
+and is maintained for the T227U vendor ABI and `gta7lite_00_defconfig` build.
 
-## Current known-good baseline
+Prebuilt artifacts are deliberately not committed here. Flashable packages are
+published on the [Releases](../../releases) page.
 
-- Device: `gta7lite` / SM-T227U
-- Kernel release: `4.19.191-28847731-abT227USQSCEYE2`
-- Flash package: `releases/T227U-KernelSU-Next-gta7lite-20261119-r3-radiofix.zip`
-- KernelSU Manager: `manager/KernelSU_Next_v3.4.2-102-gb2c1ad00_33457-release.apk`
-  (UAPI 6; signed with the certificate accepted by the in-tree driver)
+## Included work
 
-## Layout
+- KernelSU-Next integration.
+- CPU frequency statistics for frequency residency/uptime reporting.
+- CPU OC OPPs, opt-in through Kernel Adiutor:
+  - performance cluster: 2550 and 2600 MHz;
+  - efficiency cluster: 1900, 2000, 2100, 2200, and 2300 MHz.
+- GPU OC OPPs: 700, 725, and 750 MHz. The OC ceiling defaults to the stock
+  Segment-3 OPP; userspace must explicitly raise it.
+- CPU/GPU OC ceiling and voltage-control interfaces, including live rail
+  readback for the GPU path.
+- PPM/hotplug policy guard: PPM remains a thermal/power safety envelope but
+  no longer overwrites the min/max policy selected by the governor or Kernel
+  Adiutor.
+- Existing stock thermal, power, and regulator protections remain enabled.
 
-- `kernel/` — editable kernel source and KernelSU-Next integration.
-- `anykernel/` — AnyKernel3 staging tree used to create flashable packages.
-- `releases/` — verified flash packages.
-- `manager/` — matching KernelSU-Next Manager APK.
+## Vendor Wi-Fi and Bluetooth ABI
 
-## r4 requirements
+The stock vendor modules are immutable and are built with Samsung's exported
+symbol CRCs. Any kernel build that changes the ABI must patch those CRCs before
+release, otherwise Wi-Fi and Bluetooth modules will not load.
 
-1. Apply and validate the requested OPP/PTP frequency-table work.
-2. Preserve the T227U module CRC fix and T227U UTS release.
-3. Include Manager build `33457` (UAPI 6).
-4. Remove Magisk ramdisk injection before repacking the boot image; only after
-   a successful boot-image write, remove Magisk-owned `/data/adb` state while
-   preserving KernelSU and `/data/adb/modules`.
+`tools/t227u/vendor_crc_gate.sh` is mandatory for releases:
+
+```sh
+# Validate an unpatched build against the T227U vendor ABI map.
+tools/t227u/vendor_crc_gate.sh verify out-t227u/vmlinux
+
+# Validate, patch, validate again, then regenerate Image.gz.
+OBJCOPY=/path/to/llvm-objcopy \
+  tools/t227u/vendor_crc_gate.sh apply out-t227u/vmlinux \
+  out-t227u/arch/arm64/boot/Image.gz
+```
+
+The gate requires all 197 mapped exports, with zero missing symbols and zero
+stale CRCs after patching. A build must not be released unless this passes,
+unless explicitly overridden.
+
+## Build configuration
+
+`configs/t227u-r7.config` is the preserved working r7 configuration. Build
+from that configuration rather than regenerating a bare defconfig, so the
+working KernelSU and vendor compatibility selections are retained.
+
+## Kernel Adiutor
+
+The matching userspace controls live in the
+[KernelAdiutor-T227U](https://github.com/senposage/KernelAdiutor-T227U) fork.
+The flash ZIP contains KernelSU Manager, not Kernel Adiutor itself.
