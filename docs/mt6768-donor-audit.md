@@ -18,6 +18,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | CPUFreq | `4f590db06867` | Holds the CPU read lock across governor suspend to avoid a hotplug/suspend race. |
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
+| F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
 
 Each affected object compiled with the preserved T227U r7 configuration in a
 separate audit output directory. These commits are not yet in `main` and have
@@ -37,6 +38,8 @@ not produced a release.
 - The donor's full modern CPUFreq QoS/policy series: too invasive for the MTK
   4.19 driver and current PPM guard. Individual race fixes are reviewed
   separately.
+- F2FS discard-thread UAF (`0a72eeb86ef5`): not applicable. This T227U F2FS
+  fork lacks the discard-thread call that creates the vulnerable lifetime.
 
 ## Deferred pending a dedicated test plan
 
