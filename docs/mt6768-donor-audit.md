@@ -16,12 +16,13 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | Binder | `eeef72d8cae5` | Synchronizes access to a transaction target process while freeing the transaction. |
 | Binder reader availability | `229670361c29` | Lets poll-based, not-yet-registered readers be selected for process work instead of hanging. |
 | Binder transaction log | `544b1575a0e1` | Copies the BinderFS context name into the transaction log, preventing a stale-pointer read after BinderFS teardown. |
-| F2FS | `75b7b736d4b5` | Validates a malformed xattr entry before looking up its handler. `/data` is F2FS on T227U. |
+| F2FS xattrs | `75b7b736d4b5`, `f9dfa44be0fb` | Validates malformed xattr entries both before handler lookup and while finding the last entry, preventing corrupt `/data` metadata from becoming an out-of-bounds access. |
 | CPUFreq | `4f590db06867` | Holds the CPU read lock across governor suspend to avoid a hotplug/suspend race. |
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
-| Zsmalloc migration | `645996efc2ae` | Synchronizes zspage locking with asynchronous free/page migration, preventing a ZRAM compaction race. |
+| Zsmalloc migration | `645996efc2ae`, `b19675b6a046` | Synchronizes zspage locking with asynchronous free/page migration and closes its missed-wakeup race during pool teardown. |
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 | ZRAM backing device | `a12a03051ef9` | Rejects a zero-sized, including self-referential, writeback backing device before setup. |
+| ZRAM state reader | `26df52b3e816` | Stops the debug state reader before `snprintf()` can consume the final byte of its userspace buffer. |
 | F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
 | F2FS inode lifetime | `e408ed9f36b0` | Removes an evicted inode from dirty-meta tracking before checkpoint code can dereference it. |
 | F2FS GC and truncation | `45c9da086dde`, `6735aa9e3303`, `37f6006362a2` | Rejects special-file inodes during GC, initializes the physical-block extent-map field, and releases a node page on truncation failure. |
