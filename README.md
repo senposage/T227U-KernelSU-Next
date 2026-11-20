@@ -51,6 +51,23 @@ unless explicitly overridden.
 from that configuration rather than regenerating a bare defconfig, so the
 working KernelSU and vendor compatibility selections are retained.
 
+The complete KernelSU-Next legacy source used by this tree is kept at
+`kernel/KernelSU`; it is intentionally source-controlled rather than supplied
+by an untracked local checkout.  The reproducible build entry point is:
+
+```sh
+TOOLCHAIN_BIN=/path/to/android-clang-r383902/bin \
+  tools/t227u/build_t227u.sh
+```
+
+This target requires Android Clang r383902 / 11.0.1 and its LLVM binutils.
+It creates a disposable `kernel/out-t227u/` directory, applies the preserved
+`gta7lite_00_defconfig` configuration, and pins the integrated
+KernelSU-Next legacy source to driver version 33355
+(`legacy-susfs-manual@465490a2`).  It does not apply the vendor CRC override;
+run the mandatory gate above on the resulting `vmlinux` and `Image.gz` before
+packaging or testing vendor Wi-Fi/Bluetooth modules.
+
 ## Kernel Adiutor
 
 The matching userspace controls live in the
