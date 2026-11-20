@@ -11,7 +11,8 @@ kept here until it is applied or shown to require a larger incompatible change.
 | `df304b987283` encrypted casefold lookup fallback | Existing `CONFIG_UNICODE` casefold support and Samsung's shallow strict-mode scan were retained; adds the full-depth fallback after a normal hash miss. | Applied; full build and vendor CRC gate pass. Pending casefolded encrypted-directory regression test. |
 | `218cf245fc6a` duplicate encrypted filenames | No prerequisite: `fscrypt_is_nokey_name()` and the F2FS `-ENOKEY` guard are already carried. | Already present; no duplicate port. |
 | LZO/LZO-RLE safety series | Ordered compressor fixes plus malformed-stream and ZRAM stress tests. | Queue as a complete series. |
-| ZRAM writeback race/CMA work | Map exact allocator and writeback dependencies; preserve MT6765 multimedia-CMA constraints. | Queue for dependency map and memory-pressure testing. |
+| `821e2b0937da` ZRAM writeback access race | Existing writeback path and slot locking match; make access marking explicit so writeback's internal read retains `ZRAM_IDLE`. | Applied; full build and vendor CRC gate pass. Pending device-side ZRAM writeback/memory-pressure stress. |
+| CMA allocation work | Map exact allocator dependencies separately; preserve MT6765 multimedia-CMA constraints. | Queue for dependency map and memory-pressure testing. |
 
 The F2FS baseline is Android/Linux 4.19-compatible backports through the
 donor's CIP `v4.19.325` line. This is not an on-disk format upgrade.
