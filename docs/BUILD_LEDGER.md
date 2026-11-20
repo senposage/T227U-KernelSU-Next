@@ -23,9 +23,14 @@ known.
 ## Functional-trace gate
 
 Compilation is not evidence that a change functions correctly. Before code is
-committed or packaged, trace the changed behavior from its triggering event to
-the modified code and record the result in the commit body. The trace must
-explicitly check:
+committed or packaged, run a proportional functional preflight and record its
+result in the commit body. The normal preflight is deliberately short: verify
+the triggering call path, the actual type/ownership/lifetime, execution
+context, and a concrete test path. Go deeper only when that check finds a
+mismatch or the change crosses a high-risk boundary (boot, Binder, memory
+management, ABI, concurrency, power, or storage).
+
+For high-risk changes, explicitly check:
 
 1. The entry point and concrete call path used on this device.
 2. The real type, allocation/ownership, and lifetime of every changed object.
