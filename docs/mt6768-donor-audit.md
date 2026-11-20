@@ -17,6 +17,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | F2FS | `75b7b736d4b5` | Validates a malformed xattr entry before looking up its handler. `/data` is F2FS on T227U. |
 | CPUFreq | `4f590db06867` | Holds the CPU read lock across governor suspend to avoid a hotplug/suspend race. |
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
+| ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 
 Each affected object compiled with the preserved T227U r7 configuration in a
 separate audit output directory. These commits are not yet in `main` and have
