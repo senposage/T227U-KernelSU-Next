@@ -19,6 +19,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 | F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
+| LZ4 | `f75893e27f63` | Stops partial decompression before reading a match offset beyond corrupt compressed input. |
 
 Each affected object compiled with the preserved T227U r7 configuration in a
 separate audit output directory. These commits are not yet in `main` and have
