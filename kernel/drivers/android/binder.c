@@ -66,6 +66,7 @@
 #include <linux/sched/signal.h>
 #include <linux/sched/mm.h>
 #include <linux/seq_file.h>
+#include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/pid_namespace.h>
 #include <linux/security.h>
@@ -73,6 +74,7 @@
 #include <linux/ratelimit.h>
 
 #include <uapi/linux/android/binder.h>
+#include <uapi/linux/android/binderfs.h>
 #include <uapi/linux/sched/types.h>
 
 #ifdef CONFIG_MTK_TASK_TURBO
@@ -1062,9 +1064,7 @@ static bool binder_has_work(struct binder_thread *thread, bool do_proc_work)
 static bool binder_available_for_proc_work_ilocked(struct binder_thread *thread)
 {
 	return !thread->transaction_stack &&
-		binder_worklist_empty_ilocked(&thread->todo) &&
-		(thread->looper & (BINDER_LOOPER_STATE_ENTERED |
-				   BINDER_LOOPER_STATE_REGISTERED));
+		binder_worklist_empty_ilocked(&thread->todo);
 }
 
 static void binder_wakeup_poll_threads_ilocked(struct binder_proc *proc,
@@ -2153,7 +2153,11 @@ static struct binder_thread *binder_get_txn_from_and_acq_inner(
 
 static void binder_free_transaction(struct binder_transaction *t)
 {
-	struct binder_proc *target_proc = t->to_proc;
+	struct binder_proc *target_proc;
+
+	spin_lock(&t->lock);
+	target_proc = t->to_proc;
+	spin_unlock(&t->lock);
 
 	if (target_proc) {
 		binder_inner_proc_lock(target_proc);
@@ -3059,7 +3063,7 @@ static void binder_transaction(struct binder_proc *proc,
 	e->target_handle = tr->target.handle;
 	e->data_size = tr->data_size;
 	e->offsets_size = tr->offsets_size;
-	e->context_name = proc->context->name;
+	strscpy(e->context_name, proc->context->name, BINDERFS_MAX_NAME);
 #ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
 	ktime_get_ts(&e->timestamp);
 	/* monotonic_to_bootbased(&e->timestamp); */
