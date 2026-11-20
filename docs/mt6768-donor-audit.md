@@ -19,6 +19,7 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | F2FS | `75b7b736d4b5` | Validates a malformed xattr entry before looking up its handler. `/data` is F2FS on T227U. |
 | CPUFreq | `4f590db06867` | Holds the CPU read lock across governor suspend to avoid a hotplug/suspend race. |
 | MM/DMA | `c9cd4e15d9a5`, `f396b137cd9d`, `4182c78187b2` | Fatal-signal compaction exit, DMAengine allocation leak fix, and architecture page copy for zsmalloc migration. |
+| Zsmalloc migration | `645996efc2ae` | Synchronizes zspage locking with asynchronous free/page migration, preventing a ZRAM compaction race. |
 | ZRAM sysfs | `8c6ce8aef6b4` | Replaces unsafe fixed-buffer command parsing for `idle` and `writeback` with `sysfs_streq()`. |
 | ZRAM backing device | `a12a03051ef9` | Rejects a zero-sized, including self-referential, writeback backing device before setup. |
 | F2FS completion and corruption | `d6d8cd14b84c`, `f3e38c536b2a`, `ca3d63252472` | Keeps superblock state live through writeback completion and turns corrupt-node/inode cases into an fsck-required error instead of an out-of-bounds access or kernel panic. |
