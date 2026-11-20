@@ -124,6 +124,31 @@ git show --format= --unified=0 ab5b59df0
   therefore it still contains the old performance scripts for A/B isolation.
 - Device result: **untested — booting at time of record**. Not releasable.
 
+### B-20261120-VR-INSTALLER
+
+- Timestamp: 2026-11-20 16:15 EST.
+- Source state: `c498a526a` on `codex/t227u-f2fs-bringup`.
+- Changed installer hunk: `anykernel/anykernel.sh:+13..51,+81,+95`.
+  Before `write_boot`, it detects `/vendor/etc/fstab.ramplus`, retains a
+  one-time `fstab.ramplus.t227u.bak`, comments only the active
+  `/dev/block/zram0 ... zramsize=...,auto_configure` entry, verifies the
+  marker, and remounts vendor read-only. An already-marked file is a no-write
+  success path. Any failure aborts before boot write.
+- Build: repack only; `Image.gz` and DTB were copied byte-for-byte from
+  `E:\\T227U-ZS.zip`. No kernel objects or configuration were rebuilt.
+- Installer preflight: `bash -n`; fixture proved the exact zram line changes,
+  an unrelated vendor fstab line remains unchanged, and a marked entry remains
+  single-commented. ZIP integrity test and installer/Image byte comparisons:
+  **PASS**.
+- CRC gate: inherited **PASS** from B-20261120-ZSFIX-BINDERPTR-AB (197 vendor
+  exports verified, 0 mismatches); no linked kernel image changed.
+- Artifact: `E:\\T227U-VR.zip`.
+- SHA-256: `59f689a28162ed012c1ad87b42f6a525e32aa58016edeefb8d2d62e68457fcd7`.
+- Kernel-image SHA-256: `7bf365d82af4f5373fad10bad29353388c97e6643586f7b941e1c6a251c5aa2e`.
+- Device result: **untested**. In TWRP, confirm the installer reports either
+  `Disabling vendor automatic RamPlus...` or `already disabled`; after boot,
+  confirm the marker in vendor fstab and no automatic `/proc/swaps` entry.
+
 ## Device-side vendor change
 
 Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
