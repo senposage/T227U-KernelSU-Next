@@ -1,0 +1,790 @@
+{
+"__alloc_skb": {
+"crc": "0x9c7df075",
+"orig": "0xd7812f4e"
+},
+"__cfg80211_alloc_event_skb": {
+"crc": "0xc6da8f11",
+"orig": "0x822320b3"
+},
+"__cfg80211_alloc_reply_skb": {
+"crc": "0xcdabb268",
+"orig": "0x6c387184"
+},
+"__cfg80211_send_event_skb": {
+"crc": "0x21fb4b87",
+"orig": "0x7ff34bec"
+},
+"__class_create": {
+"crc": "0x3c244e0b",
+"orig": "0x0df4a9b0"
+},
+"__dev_kfree_skb_any": {
+"crc": "0xc9f5d976",
+"orig": "0x0c8f4432"
+},
+"__netdev_alloc_skb": {
+"crc": "0xf3a239f0",
+"orig": "0x663b8b28"
+},
+"__netlink_kernel_create": {
+"crc": "0x245a5a7b",
+"orig": "0x26367f3e"
+},
+"__nlmsg_put": {
+"crc": "0x4de1602c",
+"orig": "0x02c3bca9"
+},
+"__platform_driver_register": {
+"crc": "0x6f81c2dc",
+"orig": "0xee0ac32b"
+},
+"__pm_relax": {
+"crc": "0xcdaaef47",
+"orig": "0x49ad8bd6"
+},
+"__pm_runtime_disable": {
+"crc": "0x1ef1bac4",
+"orig": "0x56df043b"
+},
+"__pm_stay_awake": {
+"crc": "0x7bb26d27",
+"orig": "0x7fb3ad80"
+},
+"_copy_from_iter": {
+"crc": "0x56efa580",
+"orig": "0xef0422e1"
+},
+"alloc_netdev_mqs": {
+"crc": "0x3ebb2b76",
+"orig": "0xfcfbc404"
+},
+"bpf_trace_run4": {
+"crc": "0xbb238596",
+"orig": "0xed28e5cd"
+},
+"cdev_add": {
+"crc": "0x44313f42",
+"orig": "0xd56a7df5"
+},
+"cdev_del": {
+"crc": "0x9f749d15",
+"orig": "0x78d3ae29"
+},
+"cdev_init": {
+"crc": "0x9b585e30",
+"orig": "0x0dad624e"
+},
+"cfg80211_ch_switch_notify": {
+"crc": "0x31b76273",
+"orig": "0xb69b1be9"
+},
+"cfg80211_classify8021d": {
+"crc": "0x85ab99c4",
+"orig": "0x7cc445a8"
+},
+"cfg80211_connect_done": {
+"crc": "0x7006b894",
+"orig": "0x79a0d388"
+},
+"cfg80211_del_sta_sinfo": {
+"crc": "0x4d33c76e",
+"orig": "0x99212b37"
+},
+"cfg80211_disconnected": {
+"crc": "0x7efda3ef",
+"orig": "0x18b58558"
+},
+"cfg80211_external_auth_request": {
+"crc": "0x3b17acb6",
+"orig": "0xa95f4d05"
+},
+"cfg80211_ft_event": {
+"crc": "0x6499f500",
+"orig": "0xdcea812b"
+},
+"cfg80211_get_bss": {
+"crc": "0x4a0d2f00",
+"orig": "0x8eabf36f"
+},
+"cfg80211_inform_bss_data": {
+"crc": "0x855d7d0b",
+"orig": "0xc6e9ae1f"
+},
+"cfg80211_inform_bss_frame_data": {
+"crc": "0x82d18675",
+"orig": "0x79ceb6de"
+},
+"cfg80211_mgmt_tx_status": {
+"crc": "0x8f7a4088",
+"orig": "0x8ceec46f"
+},
+"cfg80211_michael_mic_failure": {
+"crc": "0xaabc1f81",
+"orig": "0xe74d1202"
+},
+"cfg80211_new_sta": {
+"crc": "0x1ae7b061",
+"orig": "0xacc749b8"
+},
+"cfg80211_pmksa_candidate_notify": {
+"crc": "0x993175a5",
+"orig": "0xd852be2b"
+},
+"cfg80211_put_bss": {
+"crc": "0x2ead16fa",
+"orig": "0x666385ee"
+},
+"cfg80211_ready_on_channel": {
+"crc": "0x82b83e2c",
+"orig": "0x0f575cf8"
+},
+"cfg80211_remain_on_channel_expired": {
+"crc": "0xff1b5f31",
+"orig": "0x7c6ba9c8"
+},
+"cfg80211_roamed": {
+"crc": "0xc11c1276",
+"orig": "0x02c15cf6"
+},
+"cfg80211_rx_mgmt": {
+"crc": "0xfe19efd9",
+"orig": "0xbedd5d68"
+},
+"cfg80211_scan_done": {
+"crc": "0x942901ec",
+"orig": "0x0cce545c"
+},
+"cfg80211_sched_scan_results": {
+"crc": "0xd121007e",
+"orig": "0xf753a266"
+},
+"cfg80211_sched_scan_stopped": {
+"crc": "0x6a9dd3fe",
+"orig": "0xf837ce62"
+},
+"cfg80211_tdls_oper_request": {
+"crc": "0xddb68d93",
+"orig": "0x86ca99ea"
+},
+"cfg80211_unlink_bss": {
+"crc": "0x5fac3a7d",
+"orig": "0xb8fd3445"
+},
+"cfg80211_vendor_cmd_reply": {
+"crc": "0x26e3e0f4",
+"orig": "0x4fa3d952"
+},
+"class_destroy": {
+"crc": "0x703b4be4",
+"orig": "0xc282b4df"
+},
+"connectivity_export_mmc_io_rw_direct": {
+"crc": "0xf064d09d",
+"orig": "0x58913b6b"
+},
+"connectivity_export_show_stack": {
+"crc": "0xed6c99e8",
+"orig": "0xf5271365"
+},
+"consume_skb": {
+"crc": "0x6a72efc2",
+"orig": "0x2f486c41"
+},
+"dev_get_by_name": {
+"crc": "0x750e7408",
+"orig": "0x78d058dc"
+},
+"device_create": {
+"crc": "0xd6f8c1df",
+"orig": "0xd846cb49"
+},
+"device_destroy": {
+"crc": "0x38dce40b",
+"orig": "0x11cab957"
+},
+"device_init_wakeup": {
+"crc": "0xc4612b0f",
+"orig": "0x05ca6103"
+},
+"devm_pinctrl_get": {
+"crc": "0x89ef2cdf",
+"orig": "0xc5eb1453"
+},
+"devm_pinctrl_put": {
+"crc": "0xef3a9b0f",
+"orig": "0x03582d48"
+},
+"devm_thermal_zone_of_sensor_register": {
+"crc": "0xdd22be72",
+"orig": "0xbc8de516"
+},
+"dma_alloc_from_dev_coherent": {
+"crc": "0x258542b5",
+"orig": "0x583789f3"
+},
+"dma_release_from_dev_coherent": {
+"crc": "0x7d6c4089",
+"orig": "0x06d646bb"
+},
+"dummy_dma_ops": {
+"crc": "0xb85f64fa",
+"orig": "0xc4530e50"
+},
+"eth_type_trans": {
+"crc": "0x59015212",
+"orig": "0xce50528d"
+},
+"ether_setup": {
+"crc": "0x68c3565b",
+"orig": "0xadff2ec6"
+},
+"event_triggers_call": {
+"crc": "0xd0b7ca81",
+"orig": "0x049469b8"
+},
+"filp_close": {
+"crc": "0x65aeb2e0",
+"orig": "0x4a69f641"
+},
+"filp_open": {
+"crc": "0xbdb3774b",
+"orig": "0x281f9521"
+},
+"free_netdev": {
+"crc": "0x3a81006b",
+"orig": "0x166df1c6"
+},
+"genl_register_family": {
+"crc": "0x69820bb4",
+"orig": "0xf6f1a4b9"
+},
+"genl_unregister_family": {
+"crc": "0xcfe76ac9",
+"orig": "0xadfc1c88"
+},
+"genlmsg_put": {
+"crc": "0x48fea80e",
+"orig": "0x20be9903"
+},
+"gpio_to_desc": {
+"crc": "0x14f62062",
+"orig": "0x77337e27"
+},
+"gpiod_direction_output_raw": {
+"crc": "0x6c1c6608",
+"orig": "0x56e50a9f"
+},
+"gpiod_get_raw_value": {
+"crc": "0x9a1c945c",
+"orig": "0xd4f11dbc"
+},
+"gpiod_to_irq": {
+"crc": "0xe6420176",
+"orig": "0x07158e12"
+},
+"ieee80211_get_channel": {
+"crc": "0x7e29c2a5",
+"orig": "0x1559972a"
+},
+"init_net": {
+"crc": "0x238789d3",
+"orig": "0x91118ca1"
+},
+"irq_get_irq_data": {
+"crc": "0x68f16429",
+"orig": "0xea39e31e"
+},
+"irq_of_parse_and_map": {
+"crc": "0x93cbed20",
+"orig": "0x540a354d"
+},
+"kernel_read": {
+"crc": "0x10b594c4",
+"orig": "0x983d271f"
+},
+"kfree_skb": {
+"crc": "0xb9d92919",
+"orig": "0xe320c80e"
+},
+"kmalloc_caches": {
+"crc": "0x337af048",
+"orig": "0xf3751ccb"
+},
+"kmem_cache_alloc_trace": {
+"crc": "0xc5d01376",
+"orig": "0x2cdbf7a9"
+},
+"kobject_uevent": {
+"crc": "0x0ab06d5e",
+"orig": "0xd7a3390b"
+},
+"kobject_uevent_env": {
+"crc": "0x84d88c60",
+"orig": "0x829730d6"
+},
+"kthread_create_on_node": {
+"crc": "0xbc158ef8",
+"orig": "0xff21c3a9"
+},
+"kthread_stop": {
+"crc": "0x240b7161",
+"orig": "0x2e90fed8"
+},
+"misc_deregister": {
+"crc": "0xc710d21e",
+"orig": "0x134679e0"
+},
+"misc_register": {
+"crc": "0x459cf02b",
+"orig": "0xe9d3b4bf"
+},
+"module_layout": {
+"crc": "0xa6405d15",
+"orig": "0xee258c2f"
+},
+"mtk_btif_exp_rx_thread_get": {
+"crc": "0xd8bff75e",
+"orig": "0xa041b4ff"
+},
+"n_tty_ioctl_helper": {
+"crc": "0xbed7cc08",
+"orig": "0x02e8aaee"
+},
+"napi_gro_flush": {
+"crc": "0x4d5843ac",
+"orig": "0x016560e2"
+},
+"napi_gro_receive": {
+"crc": "0x702972a1",
+"orig": "0xa3c6bc26"
+},
+"netif_carrier_off": {
+"crc": "0x11e114fc",
+"orig": "0x4c7a6f56"
+},
+"netif_carrier_on": {
+"crc": "0x087525ff",
+"orig": "0xc7f7a6f4"
+},
+"netif_device_attach": {
+"crc": "0x16a7bae3",
+"orig": "0x3658f03f"
+},
+"netif_device_detach": {
+"crc": "0x4d7096dc",
+"orig": "0xfe94561d"
+},
+"netif_napi_add": {
+"crc": "0x53b3f2e9",
+"orig": "0x4f37781f"
+},
+"netif_rx": {
+"crc": "0x116312b3",
+"orig": "0xa28cd674"
+},
+"netif_rx_ni": {
+"crc": "0x742c484f",
+"orig": "0xe2162135"
+},
+"netif_tx_stop_all_queues": {
+"crc": "0x5aecc97c",
+"orig": "0x1eb833c3"
+},
+"netif_tx_wake_queue": {
+"crc": "0x664c5d5f",
+"orig": "0x4e5fc281"
+},
+"netlink_kernel_release": {
+"crc": "0x775f646a",
+"orig": "0xdfc32262"
+},
+"netlink_unicast": {
+"crc": "0x699c59b3",
+"orig": "0xd7b19ded"
+},
+"of_address_to_resource": {
+"crc": "0x1df5588c",
+"orig": "0x093b52ea"
+},
+"of_count_phandle_with_args": {
+"crc": "0x75b999e8",
+"orig": "0xfbf28235"
+},
+"of_device_get_match_data": {
+"crc": "0xf565d882",
+"orig": "0x89bd06a8"
+},
+"of_find_compatible_node": {
+"crc": "0xfba70623",
+"orig": "0xb66f9623"
+},
+"of_find_device_by_node": {
+"crc": "0x63661ace",
+"orig": "0xaf3b7aff"
+},
+"of_find_property": {
+"crc": "0x930dc6ba",
+"orig": "0x115919ce"
+},
+"of_get_child_by_name": {
+"crc": "0x3b371fac",
+"orig": "0x2f455a15"
+},
+"of_get_named_gpio_flags": {
+"crc": "0x5df0db5a",
+"orig": "0x80a8b549"
+},
+"of_get_next_child": {
+"crc": "0xbe1e1d40",
+"orig": "0x76d8b441"
+},
+"of_get_property": {
+"crc": "0x965ebf2a",
+"orig": "0x7a1faae2"
+},
+"of_iomap": {
+"crc": "0xf4fbaa0c",
+"orig": "0xbea18d29"
+},
+"of_match_node": {
+"crc": "0xb2d89782",
+"orig": "0xead55c5b"
+},
+"of_parse_phandle": {
+"crc": "0xb1efdc59",
+"orig": "0x825e68c5"
+},
+"of_reserved_mem_device_init_by_idx": {
+"crc": "0xae64c2df",
+"orig": "0x005b8a94"
+},
+"of_reserved_mem_lookup": {
+"crc": "0x89d45c5c",
+"orig": "0xbe1f2c5a"
+},
+"perf_trace_run_bpf_submit": {
+"crc": "0xddab9a44",
+"orig": "0x297f2608"
+},
+"pinctrl_lookup_state": {
+"crc": "0x83226e7b",
+"orig": "0x8efd22f5"
+},
+"pinctrl_select_state": {
+"crc": "0x5804a5d2",
+"orig": "0x0271d34d"
+},
+"platform_driver_unregister": {
+"crc": "0xb3be4e17",
+"orig": "0x8ffb7034"
+},
+"pm_runtime_enable": {
+"crc": "0x9c2b906a",
+"orig": "0xfb570497"
+},
+"pm_wakeup_ws_event": {
+"crc": "0x1cf17731",
+"orig": "0xa35d62a7"
+},
+"proc_create": {
+"crc": "0xbb55b9c7",
+"orig": "0x0870ef54"
+},
+"proc_mkdir": {
+"crc": "0x67573b68",
+"orig": "0x3aebe9f6"
+},
+"proc_remove": {
+"crc": "0xf4afb50d",
+"orig": "0xe7f7e781"
+},
+"proc_set_user": {
+"crc": "0x1e5f5082",
+"orig": "0x66056695"
+},
+"register_netdev": {
+"crc": "0x403485e3",
+"orig": "0xd5955d76"
+},
+"register_netdevice": {
+"crc": "0xf468b81d",
+"orig": "0xbf414d1f"
+},
+"regmap_write": {
+"crc": "0x0729e132",
+"orig": "0xb7bda066"
+},
+"regulator_disable": {
+"crc": "0x74063be1",
+"orig": "0x79c7e602"
+},
+"regulator_enable": {
+"crc": "0xefa52ee6",
+"orig": "0x0b3366e8"
+},
+"regulator_get": {
+"crc": "0xddc4b370",
+"orig": "0x8c460962"
+},
+"regulator_set_voltage": {
+"crc": "0x15a4ce49",
+"orig": "0xec6e3872"
+},
+"regulatory_hint": {
+"crc": "0x0bcfab9e",
+"orig": "0x34445117"
+},
+"release_firmware": {
+"crc": "0xbb91e77d",
+"orig": "0x645cbfb2"
+},
+"remap_pfn_range": {
+"crc": "0x76686a6e",
+"orig": "0xa241f99f"
+},
+"remove_proc_entry": {
+"crc": "0xa2fbe07c",
+"orig": "0x28048d32"
+},
+"remove_proc_subtree": {
+"crc": "0xfd5bfcad",
+"orig": "0x88daff31"
+},
+"request_firmware": {
+"crc": "0x86a0cdc5",
+"orig": "0xb2fc1516"
+},
+"sdio_claim_host": {
+"crc": "0xced612f1",
+"orig": "0x8aa91f5e"
+},
+"sdio_claim_irq": {
+"crc": "0x3a17de85",
+"orig": "0x9220bf8e"
+},
+"sdio_disable_func": {
+"crc": "0xfec62888",
+"orig": "0xe5835a5b"
+},
+"sdio_enable_func": {
+"crc": "0x999b96b9",
+"orig": "0x9bd661e4"
+},
+"sdio_f0_readb": {
+"crc": "0x066d5b4c",
+"orig": "0x9b86901f"
+},
+"sdio_f0_writeb": {
+"crc": "0x95eaf84e",
+"orig": "0x858ade4b"
+},
+"sdio_get_host_pm_caps": {
+"crc": "0x1c65b44c",
+"orig": "0xf1b2785b"
+},
+"sdio_readb": {
+"crc": "0x4792e838",
+"orig": "0x386d989e"
+},
+"sdio_readl": {
+"crc": "0x7e8b6af0",
+"orig": "0x069fff2b"
+},
+"sdio_readsb": {
+"crc": "0x667f11cf",
+"orig": "0x42b23774"
+},
+"sdio_register_driver": {
+"crc": "0x66776fb6",
+"orig": "0x46623bf5"
+},
+"sdio_release_host": {
+"crc": "0x1ab3f210",
+"orig": "0x04932cd5"
+},
+"sdio_release_irq": {
+"crc": "0x81480062",
+"orig": "0x99dddc55"
+},
+"sdio_set_block_size": {
+"crc": "0xb057b3d6",
+"orig": "0xe42ea899"
+},
+"sdio_set_host_pm_flags": {
+"crc": "0x5b42530f",
+"orig": "0xe1fb9900"
+},
+"sdio_unregister_driver": {
+"crc": "0x69d78e60",
+"orig": "0xfefe8879"
+},
+"sdio_writeb": {
+"crc": "0xffacf021",
+"orig": "0xcc4e7211"
+},
+"sdio_writel": {
+"crc": "0xd672b538",
+"orig": "0xda2e5030"
+},
+"sdio_writesb": {
+"crc": "0x094c6cfb",
+"orig": "0x1f386e54"
+},
+"seq_lseek": {
+"crc": "0xd88bd615",
+"orig": "0x8539d511"
+},
+"seq_open": {
+"crc": "0x95f8b952",
+"orig": "0xbf0c2abb"
+},
+"seq_printf": {
+"crc": "0xe1562407",
+"orig": "0xe6e5251a"
+},
+"seq_puts": {
+"crc": "0x1aa173a4",
+"orig": "0x3fae4101"
+},
+"seq_read": {
+"crc": "0x12db4a5f",
+"orig": "0x3471b9da"
+},
+"seq_release": {
+"crc": "0x08545f38",
+"orig": "0x6bcf01ee"
+},
+"set_user_nice": {
+"crc": "0xac30409b",
+"orig": "0x608b9e57"
+},
+"skb_dequeue": {
+"crc": "0x16934f4e",
+"orig": "0xcd1e0956"
+},
+"skb_pull_rcsum": {
+"crc": "0xf288a781",
+"orig": "0x512d3fe8"
+},
+"skb_push": {
+"crc": "0x38affde1",
+"orig": "0x8a92404e"
+},
+"skb_put": {
+"crc": "0x5ac4573b",
+"orig": "0x34f33d3a"
+},
+"skb_queue_head": {
+"crc": "0xf287b216",
+"orig": "0x074741de"
+},
+"skb_queue_tail": {
+"crc": "0xc52c8fab",
+"orig": "0x9bee99a0"
+},
+"skb_realloc_headroom": {
+"crc": "0x8cbffeff",
+"orig": "0x44e07242"
+},
+"skb_trim": {
+"crc": "0x4ca8e1e6",
+"orig": "0xe5f053fe"
+},
+"sysfs_create_file_ns": {
+"crc": "0x4aa4301a",
+"orig": "0x6418330c"
+},
+"sysfs_remove_file_ns": {
+"crc": "0x2a0457f3",
+"orig": "0x774ead13"
+},
+"trace_define_field": {
+"crc": "0x269ee4ff",
+"orig": "0x22284926"
+},
+"trace_event_buffer_commit": {
+"crc": "0x3952796c",
+"orig": "0xdefd01e6"
+},
+"trace_event_buffer_reserve": {
+"crc": "0x7546e7e1",
+"orig": "0xc1007bd8"
+},
+"trace_event_ignore_this_pid": {
+"crc": "0xcf536bba",
+"orig": "0x1bd1e819"
+},
+"trace_event_raw_init": {
+"crc": "0x079c9c52",
+"orig": "0x236148e5"
+},
+"trace_event_reg": {
+"crc": "0x7f755054",
+"orig": "0xb7b15a81"
+},
+"trace_raw_output_prep": {
+"crc": "0x55378873",
+"orig": "0x28bf145c"
+},
+"tty_driver_flush_buffer": {
+"crc": "0x89bcd139",
+"orig": "0x67516e52"
+},
+"tty_register_ldisc": {
+"crc": "0x77d60e5f",
+"orig": "0x8629f2cc"
+},
+"unregister_netdev": {
+"crc": "0x9957b7aa",
+"orig": "0x0257f375"
+},
+"unregister_netdevice_queue": {
+"crc": "0x96643e92",
+"orig": "0xc6cb5e44"
+},
+"vfs_read": {
+"crc": "0x60d72bec",
+"orig": "0x10b6e010"
+},
+"wake_up_process": {
+"crc": "0x5b52cbe9",
+"orig": "0x45ab3b25"
+},
+"wakeup_source_register": {
+"crc": "0xa88bd18d",
+"orig": "0xedcd8111"
+},
+"wakeup_source_unregister": {
+"crc": "0x8585fc9f",
+"orig": "0x7d2fb6ff"
+},
+"wiphy_apply_custom_regulatory": {
+"crc": "0xd8297c3d",
+"orig": "0xb13d9149"
+},
+"wiphy_free": {
+"crc": "0xa2050009",
+"orig": "0x8d6f7cc8"
+},
+"wiphy_new_nm": {
+"crc": "0x6a1e622a",
+"orig": "0x6fca6efd"
+},
+"wiphy_register": {
+"crc": "0x69ecf846",
+"orig": "0x7e3f86da"
+},
+"wiphy_unregister": {
+"crc": "0x6b060978",
+"orig": "0x75e33c15"
+},
+"wireless_send_event": {
+"crc": "0x27874c4c",
+"orig": "0x98542220"
+},
+"wmt_export_platform_bridge_register": {
+"crc": "0xce992b96",
+"orig": "0x4ad600f4"
+}
+}
