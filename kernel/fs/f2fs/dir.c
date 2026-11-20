@@ -197,7 +197,8 @@ static struct f2fs_dir_entry *find_in_block(struct inode *dir,
 				struct page *dentry_page,
 				const struct f2fs_filename *fname,
 				int *max_slots,
-				struct page **res_page)
+				struct page **res_page,
+				bool use_hash)
 {
 	struct f2fs_dentry_block *dentry_blk;
 	struct f2fs_dir_entry *de;
@@ -206,7 +207,7 @@ static struct f2fs_dir_entry *find_in_block(struct inode *dir,
 	dentry_blk = (struct f2fs_dentry_block *)page_address(dentry_page);
 
 	make_dentry_ptr_block(dir, &d, dentry_blk);
-	de = f2fs_find_target_dentry(&d, fname, max_slots);
+	de = f2fs_find_target_dentry(&d, fname, max_slots, use_hash);
 	if (de)
 		*res_page = dentry_page;
 
@@ -284,16 +285,17 @@ static inline bool f2fs_match_name(const struct inode *dir,
 }
 
 struct f2fs_dir_entry *f2fs_find_target_dentry(const struct f2fs_dentry_ptr *d,
-			const struct f2fs_filename *fname, int *max_slots)
+			const struct f2fs_filename *fname, int *max_slots,
+			bool use_hash)
 {
 	struct f2fs_dir_entry *de;
 	unsigned long bit_pos = 0;
 	int max_len = 0;
 #ifdef CONFIG_F2FS_SEC_ENC_STRICT_MODE
-	bool skip_hash = false;
+	bool skip_hash = !use_hash;
 
 	/* in case of inline dentry, max_slots == NULL, else = level */
-	if (!max_slots || *max_slots <= DENTRY_FULLSCAN_LEVEL)
+	if (!skip_hash && (!max_slots || *max_slots <= DENTRY_FULLSCAN_LEVEL))
 		skip_hash = true;
 #endif
 
@@ -318,7 +320,7 @@ struct f2fs_dir_entry *f2fs_find_target_dentry(const struct f2fs_dentry_ptr *d,
 		    f2fs_match_name(d->inode, fname, d->filename[bit_pos],
 				le16_to_cpu(de->name_len)))
 #else
-		if (de->hash_code == fname->hash &&
+		if ((!use_hash || de->hash_code == fname->hash) &&
 		    f2fs_match_name(d->inode, fname, d->filename[bit_pos],
 				    le16_to_cpu(de->name_len)))
 #endif
@@ -341,7 +343,8 @@ found:
 static struct f2fs_dir_entry *find_in_level(struct inode *dir,
 					unsigned int level,
 					const struct f2fs_filename *fname,
-					struct page **res_page)
+					struct page **res_page,
+					bool use_hash)
 {
 	int s = GET_DENTRY_SLOTS(fname->disk_name.len);
 	unsigned int nbucket, nblock;
@@ -358,7 +361,7 @@ static struct f2fs_dir_entry *find_in_level(struct inode *dir,
 	nblock = bucket_blocks(level);
 
 #ifdef CONFIG_F2FS_SEC_ENC_STRICT_MODE
-	if (level <= DENTRY_FULLSCAN_LEVEL) {
+	if (!use_hash || level <= DENTRY_FULLSCAN_LEVEL) {
 		start_idx = 0;
 	} else {
 		start_idx = le32_to_cpu(fname->hash) % nbucket;
@@ -367,9 +370,14 @@ static struct f2fs_dir_entry *find_in_level(struct inode *dir,
 	bidx = dir_block_index(level, F2FS_I(dir)->i_dir_level, start_idx);
 	end_block = bidx + (nblock * nbucket);
 #else
-	bidx = dir_block_index(level, F2FS_I(dir)->i_dir_level,
-			le32_to_cpu(fname->hash) % nbucket);
-	end_block = bidx + nblock;
+	if (use_hash) {
+		bidx = dir_block_index(level, F2FS_I(dir)->i_dir_level,
+				le32_to_cpu(fname->hash) % nbucket);
+		end_block = bidx + nblock;
+	} else {
+		bidx = dir_block_index(level, F2FS_I(dir)->i_dir_level, 0);
+		end_block = bidx + nblock * nbucket;
+	}
 #endif
 
 	for (; bidx < end_block; bidx++) {
@@ -389,7 +397,7 @@ static struct f2fs_dir_entry *find_in_level(struct inode *dir,
 		max_slots = level;
 #endif
 		de = find_in_block(dir, dentry_page, fname, &max_slots,
-				   res_page);
+				   res_page, use_hash);
 		if (de)
 			break;
 
@@ -398,7 +406,7 @@ static struct f2fs_dir_entry *find_in_level(struct inode *dir,
 		f2fs_put_page(dentry_page, 0);
 	}
 
-	if (!de && room && F2FS_I(dir)->chash != fname->hash) {
+	if (!de && use_hash && room && F2FS_I(dir)->chash != fname->hash) {
 		F2FS_I(dir)->chash = fname->hash;
 		F2FS_I(dir)->clevel = level;
 	}
@@ -414,11 +422,15 @@ struct f2fs_dir_entry *__f2fs_find_entry(struct inode *dir,
 	struct f2fs_dir_entry *de = NULL;
 	unsigned int max_depth;
 	unsigned int level;
+	bool use_hash = true;
 
 	*res_page = NULL;
 
+#ifdef CONFIG_UNICODE
+start_find_entry:
+#endif
 	if (f2fs_has_inline_dentry(dir)) {
-		de = f2fs_find_in_inline_dir(dir, fname, res_page);
+		de = f2fs_find_in_inline_dir(dir, fname, res_page, use_hash);
 		goto out;
 	}
 
@@ -434,11 +446,17 @@ struct f2fs_dir_entry *__f2fs_find_entry(struct inode *dir,
 	}
 
 	for (level = 0; level < max_depth; level++) {
-		de = find_in_level(dir, level, fname, res_page);
+		de = find_in_level(dir, level, fname, res_page, use_hash);
 		if (de || IS_ERR(*res_page))
 			break;
 	}
 out:
+#ifdef CONFIG_UNICODE
+	if (IS_CASEFOLDED(dir) && !de && use_hash) {
+		use_hash = false;
+		goto start_find_entry;
+	}
+#endif
 	/* This is to increase the speed of f2fs_create */
 	if (!de)
 		F2FS_I(dir)->task = current;
