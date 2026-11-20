@@ -85,3 +85,27 @@ it was tested here.
   default `swapon` priority, which read back as the original `-2`.
 - Pending: repeat the marker-separated launcher → map-load → race capture on
   this 3 GiB logical-ZRAM configuration before drawing any conclusion.
+
+### R-20261120-ZRAM-3G result and rollback
+
+- Marker-separated 3 GiB run: map load (15 seconds) produced 227 MiB
+  swap-out, 46 MiB swap-in, 144,418 direct-reclaim pages, and `full` PSI
+  `3.95%`; the 108-second race produced 554 MiB out / 173 MiB in and peak
+  full PSI `1.77%`. The larger device reduced full-system stalls but did not
+  solve the allocation burst.
+- Lowmemorykiller's guard grew with swap capacity from 417,788 KiB to
+  629,144 KiB. During the run it still observed 62,840 KiB free swap with
+  200% thrashing, then killed background work repeatedly. At 16:52:35 it
+  killed `com.gameloft.android.ANMP.GloftA9HM` itself. This is a failed
+  configuration for this latency target.
+- Raw files: `E:\\T227U-race-zram3g-clean.log`,
+  `E:\\T227U-race-zram3g-markers.log`, and
+  `E:\\T227U-race-zram3g-post-logcat.txt`.
+- Restored state: after a safe reboot, vendor RamPlus correctly left ZRAM
+  unconfigured; manual 2 GiB ZRAM was recreated and verified with LZ4,
+  priority `-2`, `page-cluster=0`, and the conservative VM profile.
+  The active-kernel readback clamps compression streams to `3`.
+- Decision: retain 2 GiB logical ZRAM as the tested ceiling. Kernel Adiutor
+  follow-up must expose `watermark_scale_factor`, represent ZRAM readback,
+  select LZ4 when the kernel advertises it, and keep this profile opt-in;
+  it must not expose the failed 3 GiB setting as a default.
