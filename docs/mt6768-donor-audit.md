@@ -64,6 +64,13 @@ not produced a release.
 
 ## Deferred pending a dedicated test plan
 
+- **P2 — FPSGO/XGF vendor-module parity:** `fpsgo.ko` fails to load because
+  the source-built kernel does not export its required XGF interfaces. The
+  baseline CPUFreq governor and PPM paths remain functional, but frame-aware
+  CPU/GPU boost and frame pacing are absent. Restore the matching in-kernel
+  FPSGO/XGF implementation (or a compatible replacement), then verify module
+  load, `/sys/kernel/fpsgo`, game frame pacing, and the normal CPU/GPU thermal
+  limits. This is the first compatibility item for the next round.
 - LZO/LZO-RLE safety series: relevant because T227U enables ZRAM and LZO, but
   it is an ordered multi-commit compressor rewrite and must be imported and
   stress-tested as a complete series.
