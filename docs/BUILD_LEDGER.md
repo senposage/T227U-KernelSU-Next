@@ -150,6 +150,74 @@ git show --format= --unified=0 ab5b59df0
   `Disabling vendor automatic RamPlus...` or `already disabled`; after boot,
   confirm the marker in vendor fstab and no automatic `/proc/swaps` entry.
 
+### B-20261120-LZ4
+
+- Timestamp: 2026-11-20 21:11 EST.
+- Branch and source: `codex/t227u-f2fs-bringup`,
+  `cbddad6a1644c9157d8ccd8408d4126a89b05fea`. This includes the preceding
+  F2FS and vendor changes on the branch.
+- Exact hunk record: run
+  `git show --format= --unified=0 cbddad6a1 -- kernel/drivers/block/zram`.
+  The new-side hunk starts and lengths (`start,length`) are:
+  - `Makefile`: `2,1`.
+  - `backend_lz4.c`: `1,36` and `backend_lz4.h`: `1,11`.
+  - `zcomp.c`: `20,1; 41,2; 45,1; 50,1; 53,5; 59,10; 75,2; 78,1; 80,1;
+    133,1; 136,1; 138,1; 160,4; 174,3; 187,1; 190,2; 195,0; 204,4; 213,1;
+    215,1; 218,0`.
+  - `zcomp.h`: `12,0; 13,0; 17,1; 23,1; 37,1`.
+  - `zram_drv.c`: `2240,0; 2242,1; 2258,1; 2917,1; 3011,1; 3039,1;
+    3054,1; 3068,1`. The file is byte-identical to the version before
+    `dc5718e2a`.
+- Functional trace: compressed ZRAM reads hold the slot bit spinlock
+  and a zsmalloc mapping. The vendor writeback reader already holds a
+  `kmap_atomic()` source mapping when it borrows a stream. Both require
+  non-sleeping acquisition. The restored per-CPU borrow still covers
+  compression, decompression and the compressed output buffer. CPU
+  hotplug callbacks own workspace allocation and teardown. Direct LZ4
+  uses the in-tree codec and the same block format as the Crypto API
+  wrapper. The compressed decoder validates the resulting page length.
+- Config: extracted from the kernel in the known-booting
+  `E:\T227U-ZS.zip` and persisted locally as
+  `/home/legit-su/t227u-zs-tested.config`. The linked image and output
+  `.config` match that config byte-for-byte, including FPSGO V3.
+  Config SHA-256:
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+  The generic `build_t227u.sh` loads the older r7 config, which disables
+  FPSGO V3. Use the established output and the extracted config for this
+  branch's A/B test.
+- Build command from the source root:
+
+  ```sh
+  out=/home/legit-su/t227u-public-repro-build
+  export PATH=/home/legit-su/kernel_src.oc.tar/toolchain_611/bin:$PATH
+  cp /home/legit-su/t227u-zs-tested.config "$out/.config"
+  make -C kernel O="$out" ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+    CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- \
+    KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y KSU_VERSION_OVERRIDE=33355 \
+    KSU_VERSION_TAG_OVERRIDE=legacy-susfs-manual@465490a2 -j8
+  ```
+
+- Full link and module build passed. The linker reported 14 section
+  mismatches and modpost reported three duplicate vendor exports.
+  The linked kernel contains both direct LZ4 entry points. Local build
+  log: `/home/legit-su/t227u-lz4-build.log`.
+- Vendor CRC gate: **PASS**. All 197 mapped symbols were present. The
+  patch corrected 28 mismatches and verification found zero remaining.
+  Local gate log: `/home/legit-su/t227u-lz4-crc.log`.
+- Kernel-image SHA-256:
+  `40f9c17c298e9963cc67724ea452ce2adbd7d4e548b882d2b4798aebb65895ab`.
+- Artifact: `E:\T227U-LZ4.zip`.
+  SHA-256:
+  `a3df3ff8ff722da36e8688469d1024aeddf51818c85f844220f49dbd966d1d0c`.
+- Installer basis: `T227U-VR.zip`, with the same installer, DTB and single
+  KernelSU Manager package `33457`. Removed the bundled
+  `ramdisk/init.sunflower-performance.rc`,
+  `ramdisk/sbin/sunflower-performance.sh` and
+  `ramdisk/sbin/t225-perf-extra.sh` overlays. Installer syntax, ZIP integrity,
+  embedded image identity, DTB identity and manager identity checks passed.
+- Device result: **untested**. Validate boot, Wi-Fi/Bluetooth module loading
+  and an LZ4 ZRAM map-load A/B on the conservative profile.
+
 ## Device-side vendor change
 
 Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
@@ -163,13 +231,17 @@ Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
 This vendor change prevents automatic 2 GiB RamPlus activation. It does not
 add an initramfs hook and leaves manual ZRAM configuration available.
 
-## Pending source-only record
+## Historical source-only record
 
 ### Z-20261120-STREAM-OWNERSHIP
 
 - Timestamp: 2026-11-20 EST.
 - Commit: `dc5718e2a21f7c464eb1320737d435917dc4e4d8` on
   `codex/t227u-f2fs-bringup`.
+- Disposition: **superseded** by `cbddad6a1`. The original trace missed
+  the already-held slot bit spinlock and source mapping. A later run
+  linked this mutex version using the older r7 config. The linked build
+  was discarded and the tested config was recovered from the ZS image.
 - Purpose: first, isolated modern-ZRAM dependency slice. It changes stream
   ownership and CPU-hotplug lifetime only; it deliberately retains the 4.19
   Crypto API backend and introduces no dictionary ABI, compressor change,

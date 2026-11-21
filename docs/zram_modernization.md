@@ -25,10 +25,10 @@
    1 on the holdout against no dictionary using compressed bytes and elapsed
    time. The benchmark script must use actual input filenames, not a broken
    `cat | xargs` pipeline.
-4. Continue only if a candidate improves holdout size materially without a
-   compression-throughput regression. Record the raw numbers before choosing a
-   dictionary size. The expected benefit is workload-dependent; no claim is
-   made from synthetic pages.
+4. Use holdout size to screen candidates. Measure throughput and page-in
+   latency separately during repeatable benchmarking before adopting a
+   dictionary. Keep results for independent workloads before choosing a
+   general-purpose dictionary.
 
 ## Gate 1 — upstream dependency map
 
@@ -43,14 +43,19 @@ and writes. It has no modern `backend_lz4.c`, `zcomp_params`,
 3. Port the stream/concurrency plumbing first, retaining the 4.19 block layer,
    Samsung/MediaTek hooks, and existing sysfs ABI.
 
-## Gate 2 — stream-latency port
+## Gate 2 — direct LZ4 and stream latency
 
-1. Backport only a compilable, independently testable stream separation slice.
-2. Validate allocation ownership, CPU-hotplug teardown, locking, and read/write
-   concurrency before linking.
-3. Build, run the vendor CRC gate, boot, and repeat the marker-separated ZRAM
-   pressure capture. Compare full PSI, direct reclaim, and LMK events against
-   the baseline.
+1. Test the direct LZ4 backend with the existing non-sleeping stream
+   ownership. It invokes the same codec the Crypto API used on this tree.
+   Compare against the previous kernel under the same workload to measure the
+   cost of the wrapper and workspace handling.
+2. Treat sleepable streams as a separate dependency. The standard read path
+   holds a slot bit spinlock and a zsmalloc mapping. The vendor writeback
+   read path holds an atomic source mapping. A stream implementation that
+   sleeps requires changes to those lifetimes before adopting it.
+3. Run the vendor CRC gate, boot, and repeat the marker-separated ZRAM
+   pressure capture after each change. Compare full PSI, direct reclaim,
+   and LMK events against the baseline.
 
 ## Gate 3 — optional dictionary backend
 
@@ -98,6 +103,12 @@ final LZ4-native dictionary-training method. The metrics-only result is stored
 locally at `E:\\zram-bench-20261120\\lz4-dict-screen-results.json`; raw memory
 and generated dictionaries are not versioned.
 
-**Disposition:** Gate 0 passes. The selected candidate is 16 KiB, subject to
-the stream-latency port and an on-device A/B test. No LZ4/zcomp kernel source
-has changed yet.
+The 16 KiB candidate is worth further testing. The 40-page holdout comes
+from the same game capture as the training pages, so it measures an in-run
+compression benefit. A separate capture is needed to test generalization,
+and the CLI timings include a process launch per page.
+
+The direct LZ4 test build is recorded in `BUILD_LEDGER.md` under
+`B-20261120-LZ4`. It uses the existing in-tree codec and an explicit
+per-CPU LZ4 workspace. Dictionary selection and read/write stream
+separation remain unimplemented.
