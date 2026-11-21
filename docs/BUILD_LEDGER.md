@@ -347,6 +347,21 @@ git show --format= --unified=0 ab5b59df0
 - Device result: **untested**. Check boot and the default KA swap profile,
   then validate partial upload rejection, dictionary compression and
   readback, active mutation rejection, and reset on an isolated device.
+- Companion KA test build: `E:\KA-LZ4D.apk` from
+  `senposage/KernelAdiutor` commit `5724fd36186f2523bab5165e59ec5de90ead63be`.
+  SHA-256:
+  `be34a78f6c0b1319eca69a5180db52f3886915c8c8f7ecfd4fa363d293198cd0`.
+  The fixture passed dictionary staging, missing or failed upload fallback,
+  preservation of active swap during boot, and safe abort on swapoff
+  failure. ADB verified the installed APK and enabled Virtual Memory
+  Apply on Boot with a saved 2000 MiB size before the kernel flash.
+- Test dictionary: reproduced the original 16 KiB Asphalt candidate
+  from the same local capture and training split. Held-out compressed
+  totals matched the earlier screen. The private file was staged and
+  verified on the tablet at
+  `/sdcard/Download/KernelAdiutor/zram-lz4.dict`.
+  SHA-256: `500c6218e50dce47279425b2067d0fb06a50df3725ad1c1e262cc9666fadb2af`.
+  The live boot upload will be verified on #22.
 
 ## Device-side vendor change
 
