@@ -1,38 +1,45 @@
-# T227U r8 test · LZ4 ZRAM dictionaries
+# SM-T227U r8 prerelease · LZ4 ZRAM dictionaries
 
-For the Samsung Galaxy Tab A7 Lite SM-T227U. This flashable ZIP uses the
-Samsung 4.19.191 tree and T227USQSCEYE2 base. Build #22 is an
-experimental release for testing.
+For the Samsung Galaxy Tab A7 Lite LTE (SM-T227U, `gta7lite`).
+Build #22 uses Samsung Linux 4.19.191 and the T227USQSCEYE2 vendor ABI.
 
-- Modular LZ4 backend with separate compressor-independent reads.
-- Opt-in per-device LZ4 dictionary and prebuilt compression template.
-- Retains the tested VM and vendor RamPlus behavior. Plain LZ4 is
-  available without a dictionary.
-- All 197 mapped vendor CRCs passed. Boot, Wi-Fi, automatic dictionary
-  activation and live swap I/O were verified. Asphalt reached the race
-  with zero ZRAM I/O errors. The performance captures use different
-  starting states, so no speedup is claimed.
+## Kernel changes
 
-Flash `T227U-LZ4D.zip` in recovery. The matching KernelSU Next Manager
-33457 is bundled once and available separately below. Install the
-[matching Kernel Adiutor test APK](https://github.com/senposage/KernelAdiutor/releases/tag/t227u-ka-lz4d)
-to load a dictionary automatically. Save a nonzero size and enable
-Virtual Memory Apply on Boot, then copy a raw dictionary to
-`Download/KernelAdiutor/zram-lz4.dict` on the tablet. KA uploads it
-before enabling ZRAM swap.
+- Modular LZ4 ZRAM backend with decompression independent of compression
+  streams, opt-in dictionaries, and a reusable compression template.
+- Retains the T227U CPU/GPU controls, CPU frequency residency, PPM and
+  hotplug policy fixes, and vendor radio compatibility. All 197 mapped
+  vendor CRCs passed the release gate.
+- The AnyKernel installer backs up the vendor RamPlus fstab where
+  applicable and disables automatic vendor ZRAM setup so KA can configure
+  ZRAM explicitly.
 
-Use the attached `train_lz4_dictionary.py` with Python 3 and the
-`zstd` CLI. For example:
+## Install and use
 
-```sh
-python3 train_lz4_dictionary.py -o zram-lz4.dict asphalt.bin browsing.bin
-```
+1. Back up Boot in recovery. Flash `T227U-LZ4D.zip` and reboot.
+2. Use KernelSU Next Manager build 33457. The ZIP contains one copy and
+   the matching APK is also attached below.
+3. Install the [updated Kernel Adiutor companion](https://github.com/senposage/KernelAdiutor/releases/tag/t227u-ka-lz4d).
+   To load a dictionary, put one or more raw `.dict` files in
+   `Download/KernelAdiutor`, choose one from the **LZ4 dictionary** card,
+   save a nonzero ZRAM size, and enable Virtual Memory **Apply on Boot**.
+   The **Plain LZ4** option keeps dictionary use optional.
 
-The inputs are separate raw 4 KiB page captures. Keep your memory
-captures and generated dictionaries private. The release contains
-the training tool and no sample data.
+The companion also trains 16 KiB dictionaries on-device. Select workloads
+manually or use Auto with process exclusions. Use **Build when idle** after
+sampling. For desktop or rooted ADB training, the attached
+`train_lz4_dictionary.py` accepts multiple workloads and repeated
+device captures. Run `--help` for the input options. Keep app-memory
+captures and workload dictionaries private.
 
-Kernel source build commit: `e952c890224f81755de77f6f9db13f7e6ab43e90`.
+## Verification
 
-ZIP SHA-256:
-`f6f36c9be674c8d1c41dd7380f81ac49d983689e73253bd9c2debec3e73f341e`.
+Build #22 booted on the SM-T227U, associated with Wi-Fi, and reached the
+start of an Asphalt race with dictionary-backed swap and zero ZRAM I/O
+errors. A 16,235-byte test dictionary also loaded on reboot and remained
+active through the latest KA update. The workload runs used different
+starting states, so the effect on compression and latency remains open.
+
+Kernel source build commit `e952c890224f81755de77f6f9db13f7e6ab43e90`.
+
+ZIP SHA-256 `f6f36c9be674c8d1c41dd7380f81ac49d983689e73253bd9c2debec3e73f341e`.
