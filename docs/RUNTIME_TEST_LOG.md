@@ -163,3 +163,18 @@ it was tested here.
   LMKD cycle changes the starting state and prevents a matched A/B.
 - The retry is in the same capture and marker log, with filtered
   LMKD events in `E:\T227U-LZ4-AB-20261120-211926-retry-lmk.log`.
+
+## R-20261120-LZ4M-PAGE-IN
+
+- Modular LZ4 build #20, 2000 MiB LZ4 ZRAM, conservative VM profile.
+  Map load marked at device epoch `1795229124`. The race started at
+  `1795229175` and the capture stopped there as requested.
+- From the last sample before map load to the race-start readback,
+  `pswpin` rose by 16,659 pages (65 MiB) and `pswpout` rose by
+  135,599 pages (530 MiB). ZRAM was the only active swap device.
+  Game PID 11010 survived. ZRAM I/O errors and the kernel OOM count
+  stayed at zero.
+- Result: the modular backend passed the live page-in check through
+  race start. This run did not collect full-race timing.
+- Local logs: `E:\T227U-LZ4M-20261120-214256.log` and
+  `E:\T227U-LZ4M-20261120-214256-markers.log`.
