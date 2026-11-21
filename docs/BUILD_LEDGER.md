@@ -721,3 +721,18 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   The two data apps remain installed and the FM app's root profile remains
   granted. The platform integration ZIP and the system partition were
   unchanged.
+
+- The systemless version-code 8 variant retains the signer and
+  application UID. KernelSU module `t227u_fmradio_priv` mounts the
+  privileged APK and adds the FM permission allowlist. Android granted
+  audio routing and tuner capture after reboot.
+- The app's initial `/dev/fm` SELinux denial was resolved by assigning
+  the node to the app's verified group and allowing only the needed
+  tuner ioctls. SELinux remains enforcing. The app opened the tuner,
+  scanned, and tuned successfully. Android reported PLAYING, and the
+  app was left running.
+- The final late service re-applied the device group and policy in a
+  manual test. A subsequent reboot with this final service remains
+  untested. Local module archive
+  `/home/legit-su/t227u-fm-build/root-install/fm-systemless.zip`,
+  SHA-256 `b9538d0230fd030037c7287b325eafd01e37f66070334494912f507f1bd03121`.
