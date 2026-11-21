@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
+#include <linux/cgroup.h>
 #include <linux/cpufreq.h>
 #include <linux/topology.h>
 
@@ -29,6 +30,7 @@
 #define API_READY 0
 
 #define TARGET_UNLIMITED_FPS 240
+#define FPSGO_GED_AUTO (-1)
 
 enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_SWITCH_FPSGO			= 0x00,
@@ -83,9 +85,9 @@ static int fpsgo_enable;
 static int fpsgo_force_onoff;
 static int gpu_boost_enable_perf;
 static int gpu_boost_enable_camera;
-static int fpsgo_ged_tgid;
+static int fpsgo_ged_tgid = FPSGO_GED_AUTO;
 module_param_named(ged_tgid, fpsgo_ged_tgid, int, 0600);
-MODULE_PARM_DESC(ged_tgid, "Process to receive GED frame hints, or zero to disable");
+MODULE_PARM_DESC(ged_tgid, "-1 for top app, 0 to disable, positive for one process");
 
 void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 
@@ -230,6 +232,42 @@ static void fpsgo_notifier_wq_cb_enable(int enable)
 	mutex_unlock(&notify_lock);
 }
 
+/* The caller holds rcu_read_lock() across task and cgroup lookups. */
+static bool fpsgo_ged_task_selected(struct task_struct *task, int tgid)
+{
+	int selected = READ_ONCE(fpsgo_ged_tgid);
+#ifdef CONFIG_CPUSETS
+	struct cgroup *cgrp;
+	char path[sizeof("/top-app")];
+#endif
+
+	if (selected != FPSGO_GED_AUTO)
+		return selected > 0 && selected == tgid;
+
+#ifdef CONFIG_CPUSETS
+	cgrp = task_cgroup(task->group_leader, cpuset_cgrp_id);
+	return cgroup_path(cgrp, path, sizeof(path)) == sizeof(path) - 1 &&
+	       !strcmp(path, "/top-app");
+#else
+	return false;
+#endif
+}
+
+static bool fpsgo_ged_frame_selected(const struct FPSGO_NOTIFIER_PUSH_TAG *push)
+{
+	struct task_struct *task;
+	bool selected;
+
+	rcu_read_lock();
+	task = find_task_by_vpid(push->pid);
+	selected = task && task_tgid_nr(task) == push->tgid &&
+		   task->start_time == push->runtime_sample.task_start_time &&
+		   fpsgo_ged_task_selected(task, push->tgid);
+	rcu_read_unlock();
+
+	return selected;
+}
+
 static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 {
 	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush =
@@ -272,8 +310,7 @@ static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 		fpsgo_notifier_wq_cb_vsync(vpPush->cur_ts);
 		break;
 	case FPSGO_NOTIFIER_GED_FRAME:
-		if (vpPush->tgid == READ_ONCE(fpsgo_ged_tgid) &&
-		    fpsgo_is_enable())
+		if (fpsgo_is_enable() && fpsgo_ged_frame_selected(vpPush))
 			fpsgo_ctrl2comp_ged_frame(vpPush->pid, vpPush->cur_ts,
 				vpPush->bufID, &vpPush->runtime_sample);
 		break;
@@ -290,10 +327,17 @@ void fpsgo_ged_queue_frame(int owner_pid, u64 window_id)
 {
 	struct FPSGO_NOTIFIER_PUSH_TAG *push;
 	struct workqueue_struct *wq;
-	int tgid = READ_ONCE(fpsgo_ged_tgid);
+	int tgid = task_tgid_nr(current);
+	bool selected;
 
-	if (tgid <= 0 || !window_id || task_tgid_nr(current) != tgid ||
-	    (owner_pid > 0 && owner_pid != tgid) || !READ_ONCE(fpsgo_enable))
+	if (!window_id || (owner_pid > 0 && owner_pid != tgid) ||
+	    !READ_ONCE(fpsgo_enable))
+		return;
+
+	rcu_read_lock();
+	selected = fpsgo_ged_task_selected(current, tgid);
+	rcu_read_unlock();
+	if (!selected)
 		return;
 
 	wq = READ_ONCE(g_psNotifyWorkQueue);
