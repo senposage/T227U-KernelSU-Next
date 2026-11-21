@@ -68,6 +68,7 @@ at commit time so this trace is visible while each commit is written.
 | `f4d2a7519` | `anykernel/anykernel.sh:35..46`; removed all lines of `init.sunflower-performance.rc`, `sbin/sunflower-performance.sh`, and `sbin/t225-perf-extra.sh`; added `init.t227u-ramplus.rc:1..12`, `sbin/t227u-ramplus-off.sh:1..9`; `kernel/mm/zsmalloc.c:49,2465,2470..2471,2476,2505,2507,2513,2626,2629,2653..2663` | Removes forced frequency/I/O tuning; adds the ZRAM lifetime protection. The RamPlus init hook was unsafe and removed in `04eb10ecc`. |
 | `04eb10ecc` | Removed `anykernel/anykernel.sh:42..47`, all lines of `init.t227u-ramplus.rc`, and all lines of `sbin/t227u-ramplus-off.sh` | Removes the unsafe RamPlus init hook. Retained. |
 | `ab5b59df0` | `kernel/drivers/android/binder.c:68`, `75`, `3064` | Restores `e->context_name = proc->context->name;`. This tree defines `context_name` as `const char *`; the previous `strscpy()` wrote through a null pointer on early Binder traffic. Retained. |
+| `dc5718e2a` | `kernel/drivers/block/zram/zcomp.c:+42..210`; `kernel/drivers/block/zram/zcomp.h:+13..40`; `kernel/drivers/block/zram/zram_drv.c:2240..2258,2917,3011,3039,3054,3068` | Replaces pointer-per-CPU, preemption-disabled zcomp streams with embedded mutex-protected streams. The writeback decompression path now locks before `kmap_atomic()`. Direct compile of both touched objects passed; no linked image or runtime test exists yet. |
 
 Reproduce an exact change set with, for example:
 
@@ -161,3 +162,28 @@ Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
 
 This vendor change prevents automatic 2 GiB RamPlus activation. It does not
 add an initramfs hook and leaves manual ZRAM configuration available.
+
+## Pending source-only record
+
+### Z-20261120-STREAM-OWNERSHIP
+
+- Timestamp: 2026-11-20 EST.
+- Commit: `dc5718e2a21f7c464eb1320737d435917dc4e4d8` on
+  `codex/t227u-f2fs-bringup`.
+- Purpose: first, isolated modern-ZRAM dependency slice. It changes stream
+  ownership and CPU-hotplug lifetime only; it deliberately retains the 4.19
+  Crypto API backend and introduces no dictionary ABI, compressor change,
+  sysfs node, initramfs hook, or vendor-file change.
+- Functional trace: `zram_handle_comp_page()`, `__zram_bvec_read()`, and
+  `__zram_bvec_write()` are the only callers of `zcomp_stream_get()`. Each
+  now acquires the mutex before entering `kmap_atomic()`; CPU-offline takes
+  the same mutex before freeing buffers, while a migration race retries if
+  the selected stream has been torn down.
+- Compile preflight: forced build of
+  `drivers/block/zram/zcomp.o` and `drivers/block/zram/zram_drv.o` passed
+  under Android Clang r383902 / 11.0.1 using the preserved T227U
+  configuration and existing `out-t227u` output directory.
+- Full-link status: **not completed**. A duplicate full build was detected
+  before link completion and both build processes were stopped to protect the
+  shared output directory. Therefore `vmlinux`, `Image.gz`, the vendor CRC
+  gate, a ZIP, and a device test are all **not produced / not claimed**.
