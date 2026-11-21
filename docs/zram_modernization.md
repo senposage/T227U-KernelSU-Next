@@ -139,5 +139,10 @@ and the CLI timings include a process launch per page.
 
 The direct LZ4 test build is recorded in `BUILD_LEDGER.md` under
 `B-20261120-LZ4`. It uses the existing in-tree codec and an explicit
-per-CPU LZ4 workspace. Dictionary selection and read/write stream
-separation remain unimplemented.
+per-CPU LZ4 workspace. The modular follow-up `B-20261120-LZ4M` passed
+boot and live page-in. In the next image `B-20261120-LZ4-READ`, plain LZ4
+decompresses without any mutable compressor context. Compressed vendor
+writeback objects spanning pages still need a separate per-CPU bounce
+page. Crypto API backends continue borrowing a per-CPU transform for
+decoding. Dictionary selection and sleepable shared streams remain
+unimplemented.

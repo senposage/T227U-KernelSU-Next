@@ -277,6 +277,33 @@ git show --format= --unified=0 ab5b59df0
   drivers loaded in this boot. No dictionary or stream-ownership change
   is included in this image.
 
+### B-20261120-LZ4-READ
+
+- Source `d0bd91a4c157580f508cdf4de0700e2c3ffba3ff` on
+  `codex/t227u-f2fs-bringup`. Exact touched hunks:
+  `git show --format= --unified=0 d0bd91a4c`.
+- Normal ZRAM LZ4 reads dispatch directly to stateless decompression while
+  retaining the slot lock and zsmalloc mapping. Non-spanning compressed
+  vendor writeback reads follow the same dispatch. A read spanning pages
+  uses a separate preallocated one-page per-CPU buffer. Huge span reads
+  copy straight to the destination. The source mapping is released before
+  mapping the destination on spanning reads, and the bounce buffer stays
+  valid through error diagnostics. Stateful Crypto API backends retain
+  the existing non-sleeping stream borrow. CPU hotplug still owns
+  allocation, rollback and teardown. The codec and block format match #20.
+- Build: same source root, toolchain, output and make flags as
+  B-20261120-LZ4M. The output and embedded configs matched the tested
+  T227U-ZS config. Full link succeeded. Build stamp:
+  `#21 SMP PREEMPT Fri Nov 20 21:49:42 EST 2026`.
+- Vendor CRC: **PASS**, 197 mapped symbols present, 28 corrected,
+  zero remaining. Logs: `/home/legit-su/t227u-lz4-read-build.log`
+  and `/home/legit-su/t227u-lz4-read-crc.log`.
+- Local image: `/home/legit-su/t227u-public-repro-build/arch/arm64/boot/Image.gz`.
+  SHA-256: `156b9c9996f2d8b86234a5c713802be66e9b94426f628e3d19ac434479584824`.
+- Device result: **untested**. No ZIP or release was made. The default
+  swap test has no disk backing. A separate writeback test is needed to
+  exercise the new bounce buffer if disk-backed ZRAM is ever enabled.
+
 ## Device-side vendor change
 
 Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
