@@ -140,9 +140,19 @@ dictionaries private, outside Git and releases.
 
 ### Future Kernel Adiutor training control
 
-Add an explicit Start/Stop control for selected workloads. Show progress
-in unique usable pages after discarding duplicates and same-filled pages.
-Collect bounded snapshots until the quota is reached or the user stops.
+Run capture and training entirely on the tablet through Kernel Adiutor.
+Use an explicit Start/Stop control and a local ARM64 trainer. After
+starting, the user can switch among selected apps and use them normally.
+ADB is not required for either collection or training.
+
+Collect small snapshots across workload phases over a user-controlled
+session. Show progress in unique usable pages, with a per-workload cap
+so a long gaming session cannot overwhelm the other samples. Slow or
+pause collection under high memory pressure. Stop when the useful-page
+quota and workload coverage are met, when a resource cap is reached,
+or when the user taps Stop. The CLI's two-minute interval is an example
+of spacing between snapshots, not a target training duration.
+
 Keep raw pages local and remove them after training or cancellation.
 Save the candidate separately for review. Selecting a new dictionary for
 swap is a distinct action that takes effect during the next empty-device
