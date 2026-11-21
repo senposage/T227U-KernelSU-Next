@@ -279,6 +279,10 @@
 "crc": "0x9a1c945c",
 "orig": "0xd4f11dbc"
 },
+"gpiod_set_raw_value": {
+"crc": "0xdc3db327",
+"orig": "0xae0d45e3"
+},
 "gpiod_to_irq": {
 "crc": "0xe6420176",
 "orig": "0x07158e12"
@@ -403,6 +407,10 @@
 "crc": "0x699c59b3",
 "orig": "0xd7b19ded"
 },
+"nonseekable_open": {
+"crc": "0x837384f9",
+"orig": "0x31a09199"
+},
 "of_address_to_resource": {
 "crc": "0x1df5588c",
 "orig": "0x093b52ea"
@@ -474,6 +482,22 @@
 "pinctrl_select_state": {
 "crc": "0x5804a5d2",
 "orig": "0x0271d34d"
+},
+"platform_device_add": {
+"crc": "0x8058c8f3",
+"orig": "0x53f197bc"
+},
+"platform_device_alloc": {
+"crc": "0x7c1a0667",
+"orig": "0xd4da54ee"
+},
+"platform_device_put": {
+"crc": "0xcd27c6b7",
+"orig": "0x9ad4e2ad"
+},
+"platform_device_unregister": {
+"crc": "0x1309a48e",
+"orig": "0xbfacdc7f"
 },
 "platform_driver_unregister": {
 "crc": "0xb3be4e17",

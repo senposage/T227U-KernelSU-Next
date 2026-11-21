@@ -527,7 +527,21 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   The #25 installer payloads, DTB, recovery tools and single KernelSU
   Manager APK matched byte-for-byte. ZIP integrity and embedded kernel
   identity passed.
-- Device result **untested**. On #26, capture FPSGO `raw_t_cpu` and FBT
-  frame data during scrolling and game load. Confirm nonzero samples,
-  the frame-interval bound, reinitialization after idle, and radio and
-  governor behavior before considering a release.
+- Device result **booted**. ADB confirmed #26, completed boot, and
+  `fpsgo_enable=1`. A smoke process submitted 12 queue events through
+  the normal `/proc/perfmgr/perf_ioctl` frame path. The first frame
+  established a baseline. Eleven frames measured 3.069–3.203 ms of
+  CPU time and FBT produced ten positive performance indices. Sampled
+  CPU time stayed below the corresponding frame interval.
+- During a separate ten-second Asphalt capture, the game's SurfaceFlinger
+  buffer timestamps advanced while FPSGO recorded zero XGF runtime
+  samples and zero FBT performance indices. This verifies the native
+  kernel path with an explicit producer. Automatic frame delivery from
+  the GSI remains unverified and was absent in the observed workload.
+  Traces are at `/home/legit-su/t227u-20261121-xgf-device-smoke.log` and
+  `/home/legit-su/t227u-20261121-xgf-asphalt.log`. Both private trace
+  instances and the temporary device test binary were removed.
+- A separate ABI check on a disposable copy of #26 passed all 203 mapped
+  CRCs after adding the reviewed FM and GPS entries. The existing
+  `E:\T227U-XGF.zip` was unchanged. This review produced no flashable
+  artifact. Gate log `/home/legit-su/t227u-20261121-module-abi-crc.log`.

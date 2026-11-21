@@ -151,9 +151,34 @@ binary compatibility and load state separately.
 | `met` | Three required imports resolve with matching CRCs. It was absent from `/proc/modules`, so its load status needs independent evidence. |
 | `bt_drv_connac1x`, `connfem`, `wlan_drv_gen4m`, `wmt_chrdev_wifi`, `wmt_drv` | Loaded on #25. Their required imports resolve in the #26 kernel or a vendor dependency and the built-in CRCs match. |
 
-The 197-symbol release gate covers the existing mapped ABI. The ten
-additional CRC mismatches require checking the affected function and
-structure ABIs before adding any overrides.
+### FM and GPS compatibility review
+
+Boot #26 logged the five FM CRC disagreements and the GPS
+`nonseekable_open` disagreement during normal vendor module startup.
+Both modules have matching vermagic.
+
+- GPS `gps_emi_open` forwards the kernel-supplied inode and file
+  pointers directly and returns the callee's integer result.
+  `nonseekable_open()` clears three seek-related mode bits on the
+  kernel's own file object. The GPS callback-table slots and character
+  device size match the build's DWARF layouts.
+- FM stores the pointer from `platform_device_alloc()`, adds it,
+  releases it with `platform_device_put()` if add fails, and unregisters
+  it after registration. Its probe reads the device-tree node from the
+  same field offset as build #26. The platform driver and file callback
+  tables match the build's layout. The GPIO call sites pass descriptors
+  from `gpio_to_desc()` and levels 0 or 1.
+- Added the six reviewed CRCs to the map. The gate applied all 203 entries
+  on a disposable copy of #26. A second scan of all ten vendor modules
+  found zero built-in CRC mismatches for FM and GPS and verified that
+  only the six intended export CRCs changed. Device load and hardware
+  tests remain pending. The #26 kernel and ZIP retained their hashes.
+- `trace_mmstat` is optional diagnostics and is out of scope for this
+  follow-up. Its four entries were left out of the map.
+
+The `fpsgo.ko` errors are unresolved imports. CRC overrides do not
+create those exports. See the build ledger for the native driver
+smoke test and the Asphalt frame-event observation.
 
 ## Release rule
 
