@@ -144,19 +144,14 @@ because these affect low-memory workloads and KA's explicit resize path.
   to the Asphalt process. The earlier #26 trace saw zero FPSGO queue
   events while the game's buffers were presenting. The GED trace is at
   `/home/legit-su/t227u-20261121-ged-asphalt.log`.
-- A kernel-side adapter can consume GED's successful queue notifications
-  before the ioctl returns. It can use the calling thread for scheduler
-  accounting and the GED window ID as the buffer-queue key. Route one
-  completed event per frame into the native FPSGO path. Validate the
-  reported process against the caller, skip compositor and duplicate
-  events, and scope the first test to the foreground game. GED's
-  completed queue and dequeue signals lack the separate begin/end
-  timings of the original FPSGO protocol. Keep that distinction in
-  the adapter and preserve the existing GED GPU policy.
-- The next device test should confirm Asphalt's own queue notifications
-  produce XGF runtimes and FBT decisions, then compare frame times and
-  CPU residency with the adapter disabled and enabled. This probe used
-  a private trace instance and changed no Android or kernel settings.
+- Build #27 adds the kernel-side adapter behind a root-only process
+  selection. It samples the caller at a successful GED queue and uses
+  the window ID for render state, then forwards completion into native
+  XGF and FBT. GED keeps its existing GPU policy. Queue-start and
+  dequeue timing remain available through the legacy FPSGO path.
+- The adapter test build is recorded in the build ledger. The earlier
+  #26 GED probe used a private trace instance and changed no Android
+  or kernel settings.
 
 ## T227U vendor module ABI audit
 

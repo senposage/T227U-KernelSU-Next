@@ -545,3 +545,60 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   CRCs after adding the reviewed FM and GPS entries. The existing
   `E:\T227U-XGF.zip` was unchanged. This review produced no flashable
   artifact. Gate log `/home/legit-su/t227u-20261121-module-abi-crc.log`.
+
+## 2026-11-21 GED to FPSGO test build
+
+- Build ID `B-20261121-GED-27`, packaged at 02:40 EST. Branch
+  `codex/t227u-f2fs-bringup`. Built from `38f30869e` with source edits
+  committed verbatim as `29e07a2f1caf0c8e08ad45a167c8f1d913f5b55a`.
+  Boot release `4.19.191-28847731-abT227USQSCEYE2`, build #27.
+- Exact kernel hunks since build #26:
+  - `kernel/drivers/gpu/mediatek/ged/src/ged_bridge.c`: `-146,0 +147,7`
+  - `kernel/drivers/misc/mediatek/include/mt-plat/fpsgo_common.h`: `-12,0 +13,4`
+  - `kernel/drivers/misc/mediatek/performance/fpsgo_v3/base/src/fpsgo_base.c`: `-531 +531`
+  - `kernel/drivers/misc/mediatek/performance/fpsgo_v3/composer/include/fps_composer.h`: `-40,0 +41,2`
+  - `kernel/drivers/misc/mediatek/performance/fpsgo_v3/composer/src/fps_composer.c`: `-282,0 +283,38`, `-288 +325,0`, `-290,2 +326,0`, `-331,34 +366`, `-375,0 +378,35`
+  - `kernel/drivers/misc/mediatek/performance/fpsgo_v3/fbt/src/fbt_cpu.c`: `-633,0 +634,2`, `-640,4 +642,4`, `-646 +648`, `-1754 +1756,2`
+  - `kernel/drivers/misc/mediatek/performance/fpsgo_v3/fpsgo_main.c`: `-8,0 +9`, `-41,0 +43`, `-48,0 +51`, `-82,0 +86,3`, `-267,0 +274,6`, `-276,0 +289,29`
+
+- While Asphalt reported slow loading on #26, a five-second ADB sample
+  showed flat eMMC request counters, near-zero memory and I/O pressure,
+  and zero ZRAM failed reads and writes. About 529 MiB of memory was
+  available and 1.67 GiB of swap was free in the first snapshot. The
+  app was still alive and its most active worker threads were mostly
+  sleeping on futexes. The snapshot did not establish the load cause.
+- On #27, a successful GED queue from the selected process reaches
+  XGF and FBT through the existing FPSGO workqueue. The ioctl caller
+  supplies its own task sample before queuing work. The worker confirms
+  the target is still selected. Compositor calls, invalid window IDs,
+  and known different owners do not enter this path. GED has completion
+  timestamps only, so its frames skip enqueue-length reports and the
+  rescue timer that depends on enqueue-start timing.
+- The selected process control is
+  `/sys/module/fpsgo_main/parameters/ged_tgid`, verified in the linked
+  object. Root can set the current game process ID, and zero is the
+  default and disables forwarding. Worker activity and render expiry
+  remain bounded by the existing FPSGO workqueue and idle handling.
+- Host checks covered opt-in, caller and owner scope, invalid window,
+  allocation failure, disabling queued work, monotonic completion,
+  and legacy enqueue timing. Full link passed. The build reused the
+  #26 command, r8 config, and established output directory.
+  Config SHA-256
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+- Applied CRC gate verified all 203 mapped exports, including the
+  reviewed GPS and FM updates, with zero unexpected CRCs after patch.
+  A second import scan confirmed zero built-in CRC mismatches for
+  Wi-Fi, Bluetooth, FM, and GPS. Logs
+  `/home/legit-su/t227u-20261121-ged-fpsgo-build.log` and
+  `/home/legit-su/t227u-20261121-ged-fpsgo-crc.log`.
+- `Image.gz` SHA-256
+  `3e082a36b1418a207707a5afa4457a328d713198ef2ecb1a29c8a4eda849ee13`.
+  Local test archive `E:\T227U-GED.zip` SHA-256
+  `d88d1742a77a24cca4b6ab568741ff775ead02c57e2c592e695a5893806f6954`.
+  Package integrity and embedded image identity verified. The #26
+  installer, DTB, recovery tools, and single manager APK match byte for
+  byte.
+- Device result **untested**. Verify clean boot, correct module load,
+  GED disabled by default, and XGF/FBT events from the game after
+  selecting it. Compare a matched loading sequence and frame times
+  with the selection disabled and enabled.
