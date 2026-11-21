@@ -109,3 +109,33 @@ it was tested here.
   follow-up must expose `watermark_scale_factor`, represent ZRAM readback,
   select LZ4 when the kernel advertises it, and keep this profile opt-in;
   it must not expose the failed 3 GiB setting as a default.
+
+## R-20261120-DIRECT-LZ4-MAP-LOAD
+
+- Test kernel: T227U-LZ4 build #19, source `cbddad6a1`.
+  Kernel Adiutor applied 2000 MiB LZ4 ZRAM, priority `-2`, without
+  disk swap. VM profile was `100/100/6484/10/0` for swappiness, cache
+  pressure, min-free KiB, watermark scale and page-cluster respectively.
+- Map-load marker: device epoch `1795227754`. LMKD killed game PID
+  11539 at `1795227764.825`, its foreground score was `0`, and the
+  kill record listed 1,371,760 KiB RSS and 132,280 KiB of swap. LMKD
+  cited a breached minimum watermark and 24,568 KiB of usable swap
+  against its 409,596 KiB threshold. Device property
+  `ro.lmk.swap_free_low_percentage` read back as `20`.
+- Samples bracketing the marker and kill show about 139 MiB swap-out,
+  7 MiB swap-in, 115,293 direct-scan pages and peak sampled full memory
+  PSI of 3.57% through the kill. Kernel OOM kills and first three ZRAM
+  I/O error counters remained zero in this window.
+- Raw `SwapFree` was about 1.5 GiB in the samples around the kill.
+  AOSP LMKD caps reported usable ZRAM swap at an estimate based on
+  free RAM and inactive file cache. See
+  [AOSP LMKD get_free_swap](https://android.googlesource.com/platform/system/memory/lmkd/+/refs/heads/main/lmkd.cpp#1999).
+  This explains why LMKD can report much less headroom than raw
+  `SwapFree`. Earlier LMKD-reported troughs above should also be read
+  as LMKD's estimate rather than proof that ZRAM filled.
+- Result: map-load run terminated, so no race measurements exist. The
+  earlier run and this run cannot establish a codec regression. Repeat
+  against the original path at exactly 2000 MiB, using the same map,
+  post-boot settling time and background workload.
+- Local logs: `E:\T227U-LZ4-AB-20261120-211926.log` and its
+  `-markers.log`, `-lmk.log` and `-kernel.log` companions.
