@@ -736,3 +736,17 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   untested. Local module archive
   `/home/legit-su/t227u-fm-build/root-install/fm-systemless.zip`,
   SHA-256 `b9538d0230fd030037c7287b325eafd01e37f66070334494912f507f1bd03121`.
+
+### FM reception disposition
+
+**Unsupported on SM-T227U hardware.** On build #28, the MT6631 reported
+chip ID 0x6631, powered up, and accepted a tune to 98.9 MHz. On the
+successful reinsertion, MT6357 ACCDET identified a 4-pole headset.
+Android registered the wired route and delivered the plug event to
+RevampedFMRadio. The tuner returned RSSI -114 for three consecutive
+reads with no stereo lock, and the user heard static.
+
+The headset detection result confirms the jack switch and codec
+classification. The RF connection from the jack to the tuner remains
+unverified. Samsung's T227U board schematic and BOM are confidential.
+FM reception is outside the supported feature list for this device.
