@@ -602,3 +602,22 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   GED disabled by default, and XGF/FBT events from the game after
   selecting it. Compare a matched loading sequence and frame times
   with the selection disabled and enabled.
+
+## 2026-11-21 Asphalt server-sync storage check
+
+- The device was still running #26. Its running config enables
+  `CONFIG_MMC_MTK_PRO`, and the eMMC host uses MediaTek ComboA.
+  The donor DMA-map change in `54d4c1aed` modifies the generic
+  `mtk-sd` driver, which the running config excludes. The active MMC
+  core change in `213d65daf` releases a device-tree reference during
+  card removal or failed registration.
+- F2FS `/data` resolves to `mmcblk0p52`. The `mmcblk0` counters were
+  identical over the four-second sync-stall sample, with zero queued
+  requests and 0.00% ten-second I/O pressure. ZRAM reported zero failed
+  reads and writes. The available kernel ring covered roughly three
+  minutes and contained no matching MMC resets, timeouts, tuning
+  failures, or block/F2FS I/O errors.
+- Wi-Fi was validated. Asphalt's Firebase telemetry connection failed
+  and its hostname resolved to loopback on the tablet. The app log
+  did not identify a failed request to the game's synchronization
+  backend. The active eMMC scheduler was Kyber during this capture.
