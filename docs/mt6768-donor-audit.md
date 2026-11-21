@@ -106,6 +106,30 @@ because these affect low-memory workloads and KA's explicit resize path.
 | Outside the current eMMC path | `dbb7339cfddf` | mq-deadline restart handling in this patch applies to zoned block devices. The T227U eMMC path is non-zoned. |
 | Compatibility check | `3a1fe75c4db9` | The filesystem-encrypted swapfile guard changes `swapon()` eligibility. Validate the intended disk-swap backing and encryption setup before applying it. |
 
+## XGF provider search
+
+- The original kernel tar contains the two FPSGO variants with XGF glue.
+  The T225/T225N/T227 source overlay contains DTS and config files. The
+  device-side module scan found `xgf_ko_init` only as an import in
+  `/vendor/lib/modules/fpsgo.ko`.
+- Extracted `boot.img.lz4` from the local Canadian
+  `T227UVLSCFYE2` AP archive and checked its embedded configuration.
+  It has FPSGO v3 disabled and has none of the eight XGF provider
+  names in its kernel image. The matching Verizon `T227USQSCEYE2`
+  AP was listed publicly but its boot image was unavailable locally.
+  Samsung's source search returned HTTP 403 from this host.
+- The [MediaTek Labs 4.19 XGF source](https://github.com/MediaTek-Labs/common-kernel-4.19/blob/e440f21fa5dca203a027f31c2ed30af50e6b05c7/drivers/misc/mediatek/performance/fpsgo_v3/fbt/src/xgf.c)
+  calls an externally supplied runtime callback. The inspected Oppo,
+  Xiaomi, Teracube, and OnePlus trees also yielded callback glue and
+  declarations for the missing functions.
+- A native replacement can start at `XGF_QUEUE_END` in the existing
+  FPSGO path. Estimate render-thread CPU time from scheduler accounting
+  over successive frames, reuse the existing `xgf_ema_cal()` smoothing,
+  and pass the result into the existing FBT policy. Validate timestamps,
+  task lifetime, missed frames, and cleanup before adding dependency
+  accounting or a target-FPS policy. Vendor-module compatibility and
+  EMA2 parity are separate from that first working estimator.
+
 ## Release rule
 
 No audit-branch change may be released until it has a full T227U build, the
