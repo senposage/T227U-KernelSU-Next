@@ -598,10 +598,24 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   Package integrity and embedded image identity verified. The #26
   installer, DTB, recovery tools, and single manager APK match byte for
   byte.
-- Device result **untested**. Verify clean boot, correct module load,
-  GED disabled by default, and XGF/FBT events from the game after
-  selecting it. Compare a matched loading sequence and frame times
-  with the selection disabled and enabled.
+- Device result **booted**. ADB confirmed #27, completed boot, and
+  `ged_tgid=0`. Wi-Fi got IPv4. The Bluetooth, GPS, and FM modules
+  loaded. GPS and FM created `/dev/stpgps` and `/dev/fm`, and the GNSS
+  services were running. Reception and Bluetooth pairing were outside
+  this check.
+- With the bridge off, 197 GED buffers produced zero FPSGO frames.
+  With Asphalt selected, 53 of 53 GED buffers reached the FPSGO
+  composer. XGF returned 51 positive CPU samples, and FBT emitted 50
+  positive indices. The game process stayed the same during the
+  capture. The repeat off/on/off/on/off trace reproduced forwarding
+  only while selected. CPU governor minimums and maximums matched in
+  all five samples.
+- Frame cadence varied between capture windows. The test verifies
+  routing and CPU policy readback. A matched race or load remains
+  needed to measure the performance effect. Both private trace
+  instances were removed and the bridge was restored to zero.
+  Logs `/home/legit-su/t227u-20261121-ged-device-ab.log` and
+  `/home/legit-su/t227u-20261121-ged-device-repeat.log`.
 
 ## 2026-11-21 Asphalt server-sync storage check
 
