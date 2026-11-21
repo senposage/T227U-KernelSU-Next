@@ -32,16 +32,18 @@
 
 ## Gate 1 — upstream dependency map
 
-The 4.19 tree uses crypto-API `zcomp` and one per-CPU stream shared by reads
-and writes. It has no modern `backend_lz4.c`, `zcomp_params`,
-`algorithm_params`, or dictionary ABI. Therefore:
+The starting 4.19 tree used Crypto API `zcomp` and one per-CPU stream shared
+by reads and writes. The T227U port now has a direct LZ4 backend with
+backend-owned contexts. Device-wide dictionary parameters and a dictionary
+upload interface are still pending.
 
 1. Identify the exact final upstream commits for stream separation, shared
    decompression streams, bounce buffers, and idle-stream borrowing.
 2. Create a commit-by-commit dependency matrix against this tree. Do not copy
    modern `lib/lz4` or `drivers/block/zram` wholesale.
-3. Port the stream/concurrency plumbing first, retaining the 4.19 block layer,
-   Samsung/MediaTek hooks, and existing sysfs ABI.
+3. Preserve the 4.19 block layer, Samsung/MediaTek hooks and existing sysfs
+   ABI while modernizing the plain LZ4 backend. Audit stream separation
+   against the vendor locking before adopting it.
 
 ## Gate 2 — direct LZ4 and stream latency
 
@@ -68,6 +70,33 @@ Only after Gates 0–2 pass:
 3. Expose any successful control through Kernel Adiutor with readback and an
    explicit apply action; no silent boot-time provisioning.
 4. Repeat CRC, boot, ZRAM workload, and application stress validation.
+
+### Gathered dictionary dependencies
+
+The upstream comparison is pinned to Linux commit
+[`5f22fb20497f`](https://github.com/torvalds/linux/commit/5f22fb20497f4983094131f00a734362300d22d2).
+The reference files and patches are stored locally under
+`/home/legit-su/zram-upstream-audit/5f22fb20497f4983094131f00a734362300d22d2`.
+None of the dictionary patches are included in the plain-LZ4 test build.
+
+| Upstream change | 4.19 adaptation |
+| --- | --- |
+| [`f2bac7ad187d`](https://github.com/torvalds/linux/commit/f2bac7ad187d77e2a053d3cd04b158a06b683d26), [`b8f03cb703a16`](https://github.com/torvalds/linux/commit/b8f03cb703a160e14f87a467a4443adc5d940087) | Keep dictionary bytes and the prepared stream template in device-wide immutable parameters. Allocate before CPU stream creation and free after the streams and I/O have drained. |
+| [`52c7b4e2ba50`](https://github.com/torvalds/linux/commit/52c7b4e2ba508a924c991e681db534e66a851adf), [`6a81bdfeb350`](https://github.com/torvalds/linux/commit/6a81bdfeb35094c3097650306a5fda9a990d8a97) | The callback port already owns an opaque context per CPU. Pass immutable parameters through that context or the request callbacks when adding dictionary support. |
+| [`fb4f644ee8da`](https://github.com/torvalds/linux/commit/fb4f644ee8dac4e896269b84f041eb5dd3f6249d), [`f0f6f7871430`](https://github.com/torvalds/linux/commit/f0f6f787143068b23c5808e7a63aef03601f1377) | Prepare a template using `LZ4_loadDict()`, copy it to the private stream per page and call `LZ4_compress_fast_continue()`. Evaluate `LZ4_decompress_safe_usingDict()` for stateless reads, including vendor compressed writeback. The 4.19 codec already exposes these APIs. |
+| [`7b0f677c7bd5`](https://github.com/torvalds/linux/commit/7b0f677c7bd539bd5695b14f9a195e257c3b4463) | Validate the selected backend and dictionary size before enabling the disk. Protect upload, initialization and reset with the existing initialization lock. |
+
+Upstream's `algorithm_params` reads a dictionary by filename inside the
+kernel. This port needs a bounded userspace upload. In this 4.19 tree,
+ordinary kernfs writes are limited to one page per callback. A multi-page
+upload therefore needs explicit staging and commit, including validation
+for incomplete or conflicting writes. It cannot be a single text sysfs
+store for a 16 KiB dictionary.
+
+Before accepting a dictionary for a build, validate independent captures,
+check block round trips and reset lifetime, and measure the template-copy
+cost against rebuilding the hash table on the tablet. Keep workload memory
+and resulting dictionaries local.
 
 ### Dictionary lifetime rule
 

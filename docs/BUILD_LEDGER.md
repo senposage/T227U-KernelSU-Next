@@ -228,6 +228,46 @@ git show --format= --unified=0 ab5b59df0
   sleep-in-atomic warnings or ZRAM errors. Bluetooth operation and an
   LZ4 ZRAM map-load A/B on the conservative profile remain to be tested.
 
+### B-20261120-LZ4M
+
+- Timestamp: 2026-11-20 21:32 EST. Source
+  `2cd005a722f03aa28945ab78497cfde289f57475` on
+  `codex/t227u-f2fs-bringup`.
+- Exact preflight diff: `git show --format= --unified=0 2cd005a72`.
+  It covers `backend_lz4.c/.h`, `zcomp.c/.h`, `lz4_compress.c`,
+  `lz4_decompress.c`, `lz4defs.h`, `lz4hc_compress.c` and
+  `tools/t227u/lz4_roundtrip.c`. Codec reference is Linux
+  `5f22fb20497f4983094131f00a734362300d22d2`.
+- Functional trace: device creation selects LZ4 or the Crypto API ops.
+  CPU prepare allocates the private backend context and stream buffers,
+  with cleanup on failure. CPU teardown frees the context through the same
+  ops. The existing driver borrow and release paths still pin execution to
+  one CPU. Compression and decompression callbacks allocate nothing.
+  Plain LZ4 still uses the kernel block format. The codec uses compiler
+  builtins for fixed-size copies and handles overlapping final literals.
+- Build: the same source root, toolchain, output, config and `make`
+  invocation as B-20261120-LZ4. The existing output config and image-embedded
+  config both matched `t227u-zs-tested.config` byte-for-byte. Full link and
+  module build passed with the recorded section-mismatch and duplicate
+  vendor-export warnings. Build log `/home/legit-su/t227u-lz4-modern-build.log`.
+- Verification: linked the prior and current ARM64 codec objects against
+  the round-trip test, ran both binaries as the tablet ADB shell user and
+  removed them. Both passed 1,024 full-page decodes, 1,024 partial decodes
+  and 650 in-place decodes. Compressed output digest matched (`7e426a55`).
+  This validates tested codec blocks. Backend lifecycle requires a kernel
+  boot and live swap I/O check.
+- Vendor CRC gate: **PASS**, 197 present, 28 corrected, zero remaining
+  mismatches. Gate log `/home/legit-su/t227u-lz4-modern-crc.log`.
+- Kernel image SHA-256:
+  `aef2942fe7c206eab1c3f518f1fbdebc91774784f97f1665572baec64bef2bd0`.
+- Artifact: `E:\T227U-LZ4M.zip`. SHA-256:
+  `5a12f1be69558e980731106380275f4a6910b9c37d7161dea5f725cbb0c35108`.
+  Installer, DTB and sole manager APK match `T227U-LZ4.zip`.
+  ZIP integrity and embedded image comparison passed.
+- Device result: **untested**. Expected build stamp `#20`. Confirm boot,
+  Wi-Fi, configured LZ4 swap and I/O error counters. No dictionary or
+  stream-ownership change is included in this image.
+
 ## Device-side vendor change
 
 Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:
