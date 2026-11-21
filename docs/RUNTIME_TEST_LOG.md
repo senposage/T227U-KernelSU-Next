@@ -232,6 +232,10 @@ it was tested here.
 
 - ADB verified kernel stamp `#25 SMP PREEMPT Sat Nov 21 01:43:22 EST 2026`
   and `sys.boot_completed=1`. The WLAN interface had an IPv4 address.
+- ADB identified the stock vendor partition as `SM-T227U`,
+  incremental build `T227USQSCEYE2`, with Verizon sales code `VZW`
+  and bootloader `T227UVLSCFYE2`. These values identify the XGF
+  compatibility target independently of the T225-derived source tree.
 - ZRAM activated at 2040 MiB and priority `-2` with the existing
   16,235-byte test dictionary. The kernel reported 101 swap-ins and
   4,597 swap-outs with all four ZRAM I/O counters at zero.
@@ -251,3 +255,5 @@ it was tested here.
   `init_xgf_ko()` performs tracepoint setup at kernel boot. Restoring
   vendor parity requires a provider for the missing functions with the
   matching ABI and lifecycle.
+- The ten archived T227U vendor modules were checked for a definition of
+  `xgf_ko_init`. None supplied it.
