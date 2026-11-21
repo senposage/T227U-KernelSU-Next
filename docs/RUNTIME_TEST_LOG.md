@@ -139,3 +139,24 @@ it was tested here.
   post-boot settling time and background workload.
 - Local logs: `E:\T227U-LZ4-AB-20261120-211926.log` and its
   `-markers.log`, `-lmk.log` and `-kernel.log` companions.
+
+### Worst-case retry on the same boot
+
+- The second map load started at device epoch `1795227941`, followed by
+  the user-reported race start at `1795227965`. The game reached the race
+  and PID 16181 survived through the capture's last sample at
+  `1795228065`. No exact race-end marker was available in this capture.
+- The samples bracketing map load showed 345 MiB of swap-out, 92 MiB
+  of swap-in, 165,836 direct-scan pages and a peak memory full PSI
+  `avg10` of 9.07%. Sampled I/O full PSI reached 17.43%.
+- From the sample just before race start through capture end, the
+  system reported 459 MiB of swap-out, 82 MiB of swap-in and 66,149
+  additional direct-scan pages. Direct scanning stopped increasing
+  late in the run. Peak physical ZRAM use was about 495 MiB.
+- LMKD killed background processes. No foreground game kill, kernel
+  OOM kill or ZRAM I/O failure was observed during the retry.
+  The first attempt and this retry demonstrate variable app survival
+  under a worst-case workload. Reusing the same boot after the first
+  LMKD cycle changes the starting state and prevents a matched A/B.
+- The retry is in the same capture and marker log, with filtered
+  LMKD events in `E:\T227U-LZ4-AB-20261120-211926-retry-lmk.log`.
