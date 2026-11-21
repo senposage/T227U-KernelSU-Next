@@ -11,6 +11,7 @@
 
 #include <linux/sched.h>
 #include <linux/kthread.h>
+#include <linux/moduleparam.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
@@ -256,6 +257,37 @@ static int dbg_host_cnt;
 
 static unsigned int print_cpu_test = UINT_MAX;
 
+/* Odd generations record history. Increment only when the switch changes. */
+static unsigned int cmd_history_generation = 1;
+
+static int msdc_set_cmd_history(const char *val, const struct kernel_param *kp)
+{
+	unsigned int generation = READ_ONCE(cmd_history_generation);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(val, &enabled);
+	if (ret)
+		return ret;
+
+	if (enabled != (bool)(generation & 1))
+		WRITE_ONCE(cmd_history_generation, generation + 1);
+	return 0;
+}
+
+static int msdc_get_cmd_history(char *buf, const struct kernel_param *kp)
+{
+	return sprintf(buf, "%c\n",
+		       READ_ONCE(cmd_history_generation) & 1 ? 'Y' : 'N');
+}
+
+static const struct kernel_param_ops msdc_cmd_history_ops = {
+	.set = msdc_set_cmd_history,
+	.get = msdc_get_cmd_history,
+};
+module_param_cb(cmd_history, &msdc_cmd_history_ops, NULL, 0600);
+MODULE_PARM_DESC(cmd_history, "Record eMMC command history (default: enabled)");
+
 /*
  * type 0: cmd; type 1: rsp; type 3: dma end
  * when type 3: arg 0: no data crc error; arg 1: data crc error
@@ -270,16 +302,18 @@ inline void __dbg_add_host_log(struct mmc_host *mmc, int type,
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	unsigned long flags;
 #endif
+	static unsigned int last_cmd_generation, last_rsp_generation;
+	unsigned int generation = READ_ONCE(cmd_history_generation);
 	static int last_cmd, last_arg, skip;
-	int l_skip = 0;
+	int previous, l_skip = 0;
 	struct msdc_host *host = mmc_priv(mmc);
 	static int tag = -1;
 #ifdef MTK_MSDC_LOW_IO_DEBUG
 	static int continuous_count_low_io;
 #endif
 
-	/* only log msdc0 */
-	if (!host || host->id != 0)
+	/* Only log msdc0 while history capture is enabled. */
+	if (!(generation & 1) || !host || host->id != 0)
 		return;
 
 	t = cpu_clock(print_cpu_test);
@@ -289,6 +323,7 @@ inline void __dbg_add_host_log(struct mmc_host *mmc, int type,
 
 	switch (type) {
 	case 0: /* normal - cmd */
+		last_cmd_generation = generation;
 		tn = t;
 		nanosec_rem = do_div(t, 1000000000)/1000;
 		if (cmd == 44) {
@@ -317,19 +352,22 @@ inline void __dbg_add_host_log(struct mmc_host *mmc, int type,
 	case 60: /* cqhci - dcmd */
 	case 61: /* cqhci - dcmd resp */
 		nanosec_rem = do_div(t, 1000000000)/1000;
-		/*skip log if last cmd rsp are the same*/
-		if (last_cmd == cmd &&
-			last_arg == arg && cmd == 13) {
+		/* Collapse repeats only with a matching command in this window. */
+		previous = dbg_host_cnt ? dbg_host_cnt - 1 : dbg_max_cnt - 1;
+		if (type == 1 && cmd == MMC_SEND_STATUS && last_cmd == cmd &&
+		    last_arg == arg && last_rsp_generation == generation &&
+		    last_cmd_generation == generation &&
+		    dbg_run_host_log_dat[previous].type == 0 &&
+		    dbg_run_host_log_dat[previous].cmd == cmd) {
 			skip++;
-			if (dbg_host_cnt == 0)
-				dbg_host_cnt = dbg_max_cnt;
-			/*remove type = 0, command*/
-			dbg_host_cnt--;
+			dbg_host_cnt = previous;
 			break;
 		}
 		last_cmd = cmd;
 		last_arg = arg;
-		l_skip = skip;
+		if (last_rsp_generation == generation)
+			l_skip = skip;
+		last_rsp_generation = generation;
 		skip = 0;
 
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
