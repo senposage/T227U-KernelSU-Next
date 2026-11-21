@@ -421,8 +421,8 @@ void mmc_remove_card(struct mmc_card *card)
 			mmc_error_info_stlog(card);
 		}
 		device_del(&card->dev);
-		of_node_put(card->dev.of_node);
 	}
+	of_node_put(card->dev.of_node);
 
 	if (host->cqe_enabled) {
 		host->cqe_ops->cqe_disable(host);
