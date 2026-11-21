@@ -201,6 +201,26 @@ The `fpsgo.ko` errors are unresolved imports. CRC overrides do not
 create those exports. See the build ledger for the native driver
 smoke test and the Asphalt frame-event observation.
 
+## 2026-11-21 resumed donor review
+
+Screened entries 401–800 at the pinned head for additional T227U
+storage, memory, CPU-frequency, and scheduler candidates. Also
+revisited charging events and the active eMMC command logger.
+
+| Donor | T227U disposition |
+| --- | --- |
+| `51da83359def` | Ported in `b1e9f9ae7`. Widen the legacy DT-v1 frequency value before the kHz-to-Hz conversion. The stock bins and MTK PPM policy are outside this path. |
+| `827999220f8e` | Adapted in `01f40c929`. The bounded uevent helper writes the full name and value, then the driver uppercases only the property key in the appended entry. This removes one allocation per reported property. The host check compared 292 property names and covered both uevent capacity limits. Charging timing remains unmeasured. |
+| `7c113506163a`, `cc312deaba30` | Ported together in `c21e15097`. Bound the explicit FQ-CoDel quantum and use one clamped MTU for its defaults. The current tablet uses `fq` by default, so this is hardening for interfaces configured to use FQ-CoDel. |
+| `f9f6e27e2d07` | Already present in `f5b5f57da`. Checked both the maximum filename length and the remaining inline dentry slots in the rehash path. |
+| `8d734db97256` | Already in the initial import. The F2FS same-inode move check uses the expanded length before entering the block exchange. |
+| `c6ff70f2b100` | Direct import targets the generic `mtk-sd` driver. The running config selects ComboA, whose logger timestamps and updates a shared ring for msdc0. A ComboA performance experiment needs a separate history toggle that preserves register/error dumps and accounts for in-flight command/response pairs when toggled. |
+| `34ed75ea6749`, `3667698913e5`, `cf9f7abb0ac4` | The first two are for the DaVinci MMC host. The arm64 hibernation fix is outside the compiled T227U configuration. |
+
+The three ports above linked in build #29 with the established r8
+configuration and passed the applied vendor CRC gate. See the build
+ledger for the build inputs and the remaining device checks.
+
 ## Release rule
 
 No audit-branch change may be released until it has a full T227U build, the

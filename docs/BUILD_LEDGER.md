@@ -750,3 +750,32 @@ The headset detection result confirms the jack switch and codec
 classification. The RF connection from the jack to the tuner remains
 unverified. Samsung's T227U board schematic and BOM are confidential.
 FM reception is outside the supported feature list for this device.
+
+## 2026-11-21 donor audit build #29
+
+- Build ID `B-20261121-DONOR-29`. Branch
+  `codex/t227u-kernel-bringup`. Compiled from `532b5a473` with
+  the changes committed verbatim as `b1e9f9ae7`, `01f40c929`,
+  and `c21e15097`. Kernel release
+  `4.19.191-28847731-abT227USQSCEYE2`, build #29.
+- Exact source changes are in the three commits. Files touched
+  `kernel/drivers/opp/of.c`,
+  `kernel/drivers/power/supply/power_supply_sysfs.c`,
+  and `kernel/net/sched/sch_fq_codel.c`.
+- Reused the #26 command, Clang 11.0.1, and
+  `/home/legit-su/t227u-public-repro-build`. Config SHA-256 before
+  and after was
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+- Checkpatch reported zero errors or warnings. An extracted host
+  harness passed uevent key/value checks for all 292 property names,
+  full key-table and buffer handling, 64-bit OPP scaling, and FQ-CoDel
+  default MTU bounds.
+- Full link and module build passed with the existing 14 section
+  mismatches and three duplicate vendor exports. The CRC gate verified
+  all 203 mapped exports, corrected 28 values, and verified zero
+  remaining mismatches. Logs
+  `/home/legit-su/t227u-20261121-donor-resume-build.log` and
+  `/home/legit-su/t227u-20261121-donor-resume-crc.log`.
+- CRC-patched `Image.gz` SHA-256
+  `1fe53ef121ad8e66f0730ae66aaa2bbfe0013488a21904eefec5e69662de2025`.
+  Build verification is host-only. The tablet remains on #28.
