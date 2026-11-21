@@ -635,3 +635,40 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   and its hostname resolved to loopback on the tablet. The app log
   did not identify a failed request to the game's synchronization
   backend. The active eMMC scheduler was Kyber during this capture.
+
+## 2026-11-21 automatic GED to FPSGO test build
+
+- Build ID `B-20261121-GED-AUTO-28`, packaged at 03:00 EST. Branch
+  `codex/t227u-f2fs-bringup`. Built from `82fb9a4f8` with source edits
+  committed verbatim as `1a4908726bc638c1ab3438dce64e0a48502ced4d`.
+  Boot release `4.19.191-28847731-abT227USQSCEYE2`, build #28.
+- Exact kernel hunks since #27 in `kernel/drivers/misc/mediatek/performance/fpsgo_v3/fpsgo_main.c`: `-9,0 +10`, `-31,0 +33`, `-86 +88`, `-88 +90`, `-232,0 +235,36`, `-275,2 +313`, `-293 +330,6`, `-295,2 +337,4`
+
+- The Android GSI places Asphalt and Launcher in `/top-app`. Automatic
+  GED selection matches the process leader's cpuset at the ioctl and
+  validates that it is still selected before the worker uses a sample.
+  The worker also checks task start time against the sample so a recycled
+  TID cannot inherit queued work. The existing GPU policy is kept.
+- `ged_tgid=-1` now ships as the default and follows the top app.
+  A positive TGID selects a single process, and zero disables forwarding.
+  On the running #27 tablet, Asphalt was selected again after the
+  earlier capture. FBT reported a positive index and the bridge was
+  left active at the user's request.
+- Host checks covered top-app selection, demotion, exact and truncated
+  paths, overrides, thread reuse, changed process ownership, and exit.
+  The linked default was verified as `-1`. The full build reused the
+  #26 command, the established output directory, and the r8 config
+  SHA-256 `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+- Applied CRC gate verified all 203 mapped exports. The independent
+  import scan found zero built-in CRC mismatches for Wi-Fi, Bluetooth,
+  FM, and GPS. Logs `/home/legit-su/t227u-20261121-ged-auto-build.log`
+  and `/home/legit-su/t227u-20261121-ged-auto-crc.log`.
+- `Image.gz` SHA-256
+  `c60643204781aa1d0280abe9f22725d989b631888687b274f6c4cb5453d7b9e5`.
+  Local test archive `E:\T227U-AUTO.zip` SHA-256
+  `4afbb57777fdc62035512105636afe5f60a19b0229b610042b0cbc36bdd4eb49`.
+  Archive membership, integrity and embedded image identity passed.
+  All installer payloads and the single manager APK match #27.
+- Device result **untested**. Verify #28 boots with `ged_tgid=-1`,
+  Asphalt produces XGF/FBT samples without manual selection, and
+  forwarding follows the top app across an activity change.
