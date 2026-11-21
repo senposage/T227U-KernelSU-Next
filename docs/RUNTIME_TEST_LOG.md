@@ -213,3 +213,17 @@ it was tested here.
   `E:\T227U-LZ4D-20261120-223204-lmk.log`.
   The cross-check JSON and retry dictionary are local under
   `E:\zram-bench-20261120`. The retry dictionary was not applied.
+
+### Retry dictionary after reboot
+
+- The retry candidate was installed later on request. Its SHA-256 was
+  verified before and after reboot:
+  `7a9dd6d89f4a9f52e69f51877efcf3d57256506cfeb7662ff6e7c03493b9acea`.
+  ADB confirmed a new boot ID and 16,384 dictionary bytes active on
+  2040 MiB ZRAM at priority `-2`, with zero ZRAM I/O errors.
+  The original dictionary remains backed up locally.
+- The extended trainer captured two timed samples of a synthetic ARM64
+  process over rooted ADB on the tablet. It collected 162 pages each
+  time, retained 131 usable unique pages overall, and produced a
+  16 KiB dictionary. The original file-input training workflow also
+  passed. Synthetic process and dictionary artifacts were temporary.

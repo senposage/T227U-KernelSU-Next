@@ -112,11 +112,41 @@ python3 tools/t227u/train_lz4_dictionary.py -o zram-lz4.dict \
   asphalt.bin browsing.bin app-switching.bin
 ```
 
+To capture directly from a running app over rooted ADB, choose its package
+explicitly. This example takes six snapshots about two minutes apart and
+stores the raw pages privately for a later mixed-workload run:
+
+```sh
+python3 tools/t227u/train_lz4_dictionary.py \
+  --device-package com.gameloft.android.ANMP.GloftA9HM \
+  --repeat 6 --interval 120 --capture-mib 16 \
+  --save-captures asphalt-session --capture-only
+```
+
+Repeat with a different package and directory for other workloads.
+Combine selected session files in the offline command above, reserving
+different sessions for validation. For a one-command capture and
+training run, omit `--capture-only` and supply `-o zram-lz4.dict`.
+Raw page files are temporary unless `--save-captures` is given.
+On WSL, use `--adb /path/to/adb.exe` to use the Windows ADB installation.
+Limit snapshot size under pressure because reading pages can fault them
+back in and affect test timing.
+
 Keep whole sessions out of training to test generalization. Compare the
 baseline, workload-specific dictionary and mixed dictionary separately
 on each held-out workload. Keep file hashes, seed, training settings and
 aggregate metrics in the test record. Keep raw captures and generated
 dictionaries private, outside Git and releases.
+
+### Future Kernel Adiutor training control
+
+Add an explicit Start/Stop control for selected workloads. Show progress
+in unique usable pages after discarding duplicates and same-filled pages.
+Collect bounded snapshots until the quota is reached or the user stops.
+Keep raw pages local and remove them after training or cancellation.
+Save the candidate separately for review. Selecting a new dictionary for
+swap is a distinct action that takes effect during the next empty-device
+initialization.
 
 ### Dictionary lifetime rule
 
