@@ -479,3 +479,55 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   2040 MiB of dictionary-backed ZRAM. ADB recorded swap-ins and
   swap-outs with zero ZRAM I/O errors. See the runtime log for the
   remaining FPSGO/XGF work.
+
+## 2026-11-21 XGF test build
+
+- Build ID `B-20261121-XGF-26`, packaged at 02:18 EST.
+  Branch `codex/t227u-f2fs-bringup`. Built from `9b50239d1` with the
+  source edits committed verbatim as `8be986c48e4ecb6e86df07d2928d9b4adf927d8b`.
+  Boot release `4.19.191-28847731-abT227USQSCEYE2`, build #26.
+- Exact source hunks since build #25, relative to
+  `kernel/drivers/misc/mediatek/performance/fpsgo_v3/`:
+  - `composer/include/fps_composer.h`: `-9,0 +10,2`, `-37 +39,2`
+  - `composer/src/fps_composer.c`: `-268 +268`, `-285 +285`, `-330,0 +331,2`, `-345,3 +347,2`, `-444 +445`, `-522 +523,2`
+  - `fbt/include/xgf.h`: `-103,0 +104,5`, `-265,0 +271`, `-268 +274`
+  - `fbt/src/xgf.c`: `-14,0 +15`, `-28,0 +30,7`, `-822,0 +831`, `-841,3 +850,2`, `-844,0 +853`, `-856 +865`, `-1291,0 +1301,11`, `-1294,2 +1314,2`, `-1299,9 +1319,2`, `-1375 +1388`, `-1379 +1391,0`, `-1381 +1392,0`, `-1405,0 +1417,11`, `-1523,2 +1545`, `-1526 +1547,2`, `-1528 +1550,2`, `-1530,4 +1553,7`, `-1535 +1561,28`, `-1611 +1664`, `-1617,0 +1671`, `-1648,0 +1703`, `-1668 +1723,2`, `-1673,8 +1729,3`
+  - `fpsgo_main.c`: `-54,0 +55`, `-153 +154,2`, `-172 +174`, `-246 +248,2`, `-300,0 +304,3`
+
+- The MT6765 queue-end notifier snapshots scheduler runtime before
+  queueing work. Composer and XGF operate under their existing mutexes.
+  The sample carries a start timestamp to detect PID recycling. It has
+  no task pointer. XGF reuses its EMA and outer dependency list for the
+  render thread, and FBT consumes the result using its existing policy.
+  The host test executed the estimator for initialization, bounded and
+  zero deltas, buffer isolation, task reuse, idle, counter rollback, and
+  vendor callback precedence. Patch style and full link passed.
+- Existing r8 output and configuration retained. The .config SHA-256
+  was `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+  Build command from the source root:
+
+  ```sh
+  export PATH=/home/legit-su/kernel_src.oc.tar/toolchain_611/bin:$PATH
+  out=/home/legit-su/t227u-public-repro-build
+  make -C kernel O="$out" ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+    CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- \
+    KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y KSU_VERSION_OVERRIDE=33355 \
+    KSU_VERSION_TAG_OVERRIDE=legacy-susfs-manual@465490a2 -j8
+  ```
+
+- Applied vendor CRC gate passed all 197 mapped exports with zero
+  remaining mismatches. The all-module audit in `mt6768-donor-audit.md`
+  records ten additional CRC mismatches outside the gate.
+  Logs `/home/legit-su/t227u-20261121-xgf-build.log` and
+  `/home/legit-su/t227u-20261121-xgf-crc.log`.
+- Patched `Image.gz` SHA-256
+  `13dc82d003410438020ea47be40a662d529b57b3d577283d3393686ad6cf337c`.
+  Local test ZIP `E:\T227U-XGF.zip`
+  SHA-256 `2a925a1ec81cb6950fa26de73b6ca9546273a26d88daf8e170044c7dd31f5f1c`.
+  The #25 installer payloads, DTB, recovery tools and single KernelSU
+  Manager APK matched byte-for-byte. ZIP integrity and embedded kernel
+  identity passed.
+- Device result **untested**. On #26, capture FPSGO `raw_t_cpu` and FBT
+  frame data during scrolling and game load. Confirm nonzero samples,
+  the frame-interval bound, reinitialization after idle, and radio and
+  governor behavior before considering a release.
