@@ -215,8 +215,14 @@ git show --format= --unified=0 ab5b59df0
   `ramdisk/sbin/sunflower-performance.sh` and
   `ramdisk/sbin/t225-perf-extra.sh` overlays. Installer syntax, ZIP integrity,
   embedded image identity, DTB identity and manager identity checks passed.
-- Device result: **untested**. Validate boot, Wi-Fi/Bluetooth module loading
-  and an LZ4 ZRAM map-load A/B on the conservative profile.
+- Device result: **booted**. ADB reported `sys.boot_completed=1` and the
+  expected build stamp `#19 SMP PREEMPT Fri Nov 20 21:10:56 EST 2026`.
+  Wi-Fi associated successfully and `wlan_drv_gen4m` and
+  `bt_drv_connac1x` were loaded. Bluetooth was off during the check.
+  ZRAM reported `lzo [lz4] zstd`, with `disksize=0` and no active swap.
+  The boot log search found no unknown symbols, version mismatches,
+  sleep-in-atomic warnings or ZRAM errors. Bluetooth operation and an
+  LZ4 ZRAM map-load A/B on the conservative profile remain to be tested.
 
 ## Device-side vendor change
 
