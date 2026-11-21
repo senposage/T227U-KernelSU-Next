@@ -428,9 +428,10 @@ static long sync_file_ioctl_fence_info(struct sync_file *sync_file,
 				       unsigned long arg)
 {
 	struct sync_file_info info;
+	struct sync_fence_info single_fence;
 	struct sync_fence_info *fence_info = NULL;
 	struct dma_fence **fences;
-	__u32 size;
+	size_t size;
 	int num_fences, ret, i;
 
 	if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
@@ -457,10 +458,16 @@ static long sync_file_ioctl_fence_info(struct sync_file *sync_file,
 	if (info.num_fences < num_fences)
 		return -EINVAL;
 
+	if (num_fences == 1) {
+		/* Match the zeroed fields and string tails of the array path. */
+		memset(&single_fence, 0, sizeof(single_fence));
+		fence_info = &single_fence;
+	} else {
+		fence_info = kcalloc(num_fences, sizeof(*fence_info), GFP_KERNEL);
+		if (!fence_info)
+			return -ENOMEM;
+	}
 	size = num_fences * sizeof(*fence_info);
-	fence_info = kzalloc(size, GFP_KERNEL);
-	if (!fence_info)
-		return -ENOMEM;
 
 	for (i = 0; i < num_fences; i++) {
 		int status = sync_fill_fence_info(fences[i], &fence_info[i]);
@@ -483,7 +490,8 @@ no_fences:
 		ret = 0;
 
 out:
-	kfree(fence_info);
+	if (fence_info != &single_fence)
+		kfree(fence_info);
 
 	return ret;
 }
