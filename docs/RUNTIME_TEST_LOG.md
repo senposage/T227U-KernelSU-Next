@@ -227,3 +227,27 @@ it was tested here.
   time, retained 131 usable unique pages overall, and produced a
   16 KiB dictionary. The original file-input training workflow also
   passed. Synthetic process and dictionary artifacts were temporary.
+
+## 2026-11-21 build #25 boot and FPSGO
+
+- ADB verified kernel stamp `#25 SMP PREEMPT Sat Nov 21 01:43:22 EST 2026`
+  and `sys.boot_completed=1`. The WLAN interface had an IPv4 address.
+- ZRAM activated at 2040 MiB and priority `-2` with the existing
+  16,235-byte test dictionary. The kernel reported 101 swap-ins and
+  4,597 swap-outs with all four ZRAM I/O counters at zero.
+- `/sys/kernel/fpsgo/common/fpsgo_enable` returned `1`. The in-tree
+  FPSGO v3 and XGF sysfs nodes are present. Frame activity during a
+  game and XGF runtime estimation still need verification.
+- The stock `fpsgo.ko` SHA-256 matched the archived module. Eight of
+  its 16 XGF imports are exported by #25, including the callback
+  pointer globals and `notify_xgf_ko_ready`. Boot logs report the eight
+  implementation functions as unresolved:
+  `xgf_ko_init`, `xgf_est_runtime`, `xgff_est_runtime`,
+  `xgff_update_start_prev_index`, `xgf_ema2_init`,
+  `xgf_ema2_predict`, `fpsgo_xgf2ko_calculate_target_fps`,
+  and `fpsgo_xgf2ko_do_recycle`.
+- The module initializer calls `xgf_ko_init`, fills the callback pointer
+  globals, and then calls `notify_xgf_ko_ready`. The in-tree
+  `init_xgf_ko()` performs tracepoint setup at kernel boot. Restoring
+  vendor parity requires a provider for the missing functions with the
+  matching ABI and lifecycle.

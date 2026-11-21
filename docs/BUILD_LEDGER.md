@@ -475,5 +475,7 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   The package contains the exact CRC-verified #25 image. The r8
   AnyKernel installer, DTB, recovery tools, and single KernelSU Next
   Manager APK matched byte for byte. ZIP integrity passed.
-- Boot, radio, and live ZRAM smoke tests remain pending. No dedicated
-  page-in A/B was run.
+- The tablet booted #25, obtained a Wi-Fi IPv4 address, and activated
+  2040 MiB of dictionary-backed ZRAM. ADB recorded swap-ins and
+  swap-outs with zero ZRAM I/O errors. See the runtime log for the
+  remaining FPSGO/XGF work.
