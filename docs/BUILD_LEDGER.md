@@ -44,7 +44,7 @@ at commit time so this trace is visible while each commit is written.
 
 ## Common build inputs
 
-- Branch: `codex/t227u-f2fs-bringup`
+- Branch: `codex/t227u-kernel-bringup`
 - Source: `/home/legit-su/t227u-public-source`
 - Output: `/home/legit-su/t227u-public-repro-build`
 - Config: `gta7lite_00_defconfig`; FPSGO V3 enabled by commit `9c1e50771`.

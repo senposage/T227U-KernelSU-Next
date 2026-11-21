@@ -7,7 +7,7 @@ The donor graph includes complete Linux/Android ancestry. The audit
 targets its recent overlay and backports. On 2026-11-21, the first 100
 commits were screened by subject, the next 300 were queried for matching
 subsystems, and the candidates below were checked against their diffs and
-the T227U call paths. The working branch is `codex/t227u-f2fs-bringup`.
+the T227U call paths. The working branch is `codex/t227u-kernel-bringup`.
 
 ## Carried in the T227U r8 source
 
@@ -73,7 +73,7 @@ link, the vendor CRC gate, and device testing before packaging.
   benchmark requirement is not itself a rejection.
 - F2FS discard-thread UAF (`0a72eeb86ef5`): prior applicability assessment was
   incorrect. The T227U fork has the discard worker; the corrected teardown
-  ordering is now carried on `codex/t227u-f2fs-bringup`.
+  ordering is now carried on `codex/t227u-kernel-bringup`.
 
 ## Follow-up and prerequisites
 
