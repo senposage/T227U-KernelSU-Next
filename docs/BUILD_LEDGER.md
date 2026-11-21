@@ -351,8 +351,12 @@ git show --format= --unified=0 ab5b59df0
   that a value-only write succeeds. The corrected transaction run as
   KA's app UID loaded 16,384 bytes, initialized 2040 MiB LZ4 ZRAM,
   and activated swap at priority `-2`. ZRAM errors stayed at zero
-  through 241 swap-outs. A reboot with the corrected APK and sustained
-  dictionary page-in are pending.
+  through 241 swap-outs. After a second reboot with the corrected APK,
+  KA's ApplyOnBoot log confirmed automatic activation with
+  `disk=2139095040 bytes, dictionary=16384 bytes`. ADB readback matched:
+  2040 MiB of swap at priority `-2`, three swap-ins, 243 swap-outs,
+  zero ZRAM I/O errors and zero kernel OOM kills. Sustained dictionary
+  page-in and workload performance are pending.
 - Fixed companion KA test build: `E:\KA-LZ4D.apk` from
   `senposage/KernelAdiutor` commit `7932d0da50034f2a8ec195794e2dd8368eb3137c`.
   SHA-256:
@@ -367,7 +371,7 @@ git show --format= --unified=0 ab5b59df0
   verified on the tablet at
   `/sdcard/Download/KernelAdiutor/zram-lz4.dict`.
   SHA-256: `500c6218e50dce47279425b2067d0fb06a50df3725ad1c1e262cc9666fadb2af`.
-  Automated boot upload and performance remain to be verified.
+  Automatic boot upload passed. Workload performance remains to be tested.
 
 ## Device-side vendor change
 
