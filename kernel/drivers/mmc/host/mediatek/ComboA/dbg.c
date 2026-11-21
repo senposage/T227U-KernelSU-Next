@@ -257,8 +257,8 @@ static int dbg_host_cnt;
 
 static unsigned int print_cpu_test = UINT_MAX;
 
-/* Odd generations record history. Increment only when the switch changes. */
-static unsigned int cmd_history_generation = 1;
+/* Zero starts disabled. Odd generations record command history. */
+static unsigned int cmd_history_generation;
 
 static int msdc_set_cmd_history(const char *val, const struct kernel_param *kp)
 {
@@ -286,7 +286,7 @@ static const struct kernel_param_ops msdc_cmd_history_ops = {
 	.get = msdc_get_cmd_history,
 };
 module_param_cb(cmd_history, &msdc_cmd_history_ops, NULL, 0600);
-MODULE_PARM_DESC(cmd_history, "Record eMMC command history (default: enabled)");
+MODULE_PARM_DESC(cmd_history, "Record eMMC command history (default: disabled)");
 
 /*
  * type 0: cmd; type 1: rsp; type 3: dma end

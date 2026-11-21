@@ -809,3 +809,17 @@ FM reception is outside the supported feature list for this device.
   including the installer, DTB, recovery tools, and single KernelSU
   Manager 33457 APK, match the booted #28 ZIP byte for byte. Device
   boot, radio, and latency testing for #30 remain pending.
+
+### ComboA command history default after build #30
+
+- Changed `kernel/drivers/mmc/host/mediatek/ComboA/dbg.c` so the
+  zero-initialized capture generation starts with command logging
+  disabled. Root can write `1` to
+  `/sys/module/msdc/parameters/cmd_history` to enable capture.
+- Recompiled the ComboA `dbg.o` target with Clang 11.0.1 in the
+  established output directory. Verified the generation is in
+  zero-filled BSS and the module parameter is present. The config hash
+  matched build #30. Log
+  `/home/legit-su/t227u-20261121-msdc-default-off-object.log`.
+  Object verification only. The running #30 tablet already has
+  capture disabled through its runtime setting.
