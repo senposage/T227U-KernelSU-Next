@@ -689,3 +689,25 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   platform test certificate. A direct port would need integration and
   signing with this GSI's platform key, or a separate app design with
   an explicitly authorized FM backend.
+
+## 2026-11-21 RevampedFMRadio build
+
+- Built the unmodified upstream MediaTek source at
+  `02a4f9991434e60931c539e67a0b5e24cf0a2c35` in
+  `/home/legit-su/t227u-revamped-fmradio`. The work directory is
+  `/home/legit-su/t227u-fm-build`.
+- The main APK retains `com.android.fmradio`, version `3.1.3-mtk`,
+  and the system shared UID. It includes ARM64 `libmtkfmjni.so` with
+  its JNI entry point. The separate recordings APK and upstream
+  privileged-permission XML are in the same archive.
+- Java and resources used Android 14 framework inputs. JNI used NDK
+  r27c, a local compatibility include for the legacy Android logging
+  header, and the GSI's `libcutils` as a link input. Packaging used
+  SDK 35 tools, CardView 1.0.0, and AndroidX Core 1.12.0.
+- Local archive `E:\T227U-FMRadio.zip`, SHA-256
+  `244caf9dd54ecf535326cf3638ed0be09cc1ef61b0497b373de7fbd86edba1c4`.
+  Verified both manifests compile at API 34, APK alignment and
+  integrity, ARM64 JNI identity, and ZIP integrity.
+- Both APKs are unsigned ROM integration artifacts. The current
+  GSI uses its own platform signer, so install and FM playback
+  testing still require suitable signing and integration.
