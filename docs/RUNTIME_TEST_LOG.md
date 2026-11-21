@@ -145,7 +145,10 @@ it was tested here.
 - The second map load started at device epoch `1795227941`, followed by
   the user-reported race start at `1795227965`. The game reached the race
   and PID 16181 survived through the capture's last sample at
-  `1795228065`. No exact race-end marker was available in this capture.
+  `1795228065`. The user confirmed the race finished after the sampler
+  ended. The report was marked at `1795228144`, with the same PID alive,
+  no ZRAM I/O errors and no kernel OOM kills. This is a finish
+  confirmation, so the report timestamp is excluded from the race timings.
 - The samples bracketing map load showed 345 MiB of swap-out, 92 MiB
   of swap-in, 165,836 direct-scan pages and a peak memory full PSI
   `avg10` of 9.07%. Sampled I/O full PSI reached 17.43%.
