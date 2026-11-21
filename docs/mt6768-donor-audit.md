@@ -132,6 +132,32 @@ because these affect low-memory workloads and KA's explicit resize path.
   prediction are outside this implementation. See the build ledger for
   verification and the tablet test.
 
+## Android 14 GSI frame delivery
+
+- The installed Lineage TrebleDroid GSI has the
+  [MediaTek GED KPI Surface hooks](https://github.com/xiaoleGun/treble_build_miku/blob/Vampire_v2/patches/trebledroid/platform_frameworks_native/0009-Add-MTK-GED-KPI-support-to-fix-broken-Mediatek-gpufr.patch).
+  The device property `persist.sys.phh.mtk_ged_kpi` is already `1`,
+  and `/proc/ged` is live. The MT6765 GPU Makefile builds GED through
+  its platform selection even with `CONFIG_MTK_GED_SUPPORT` unset.
+- A six-second function trace on #26 recorded 58 GED queue, 58 dequeue,
+  and 58 acquire calls from Asphalt's `Thread-13`. The thread belonged
+  to the Asphalt process. The earlier #26 trace saw zero FPSGO queue
+  events while the game's buffers were presenting. The GED trace is at
+  `/home/legit-su/t227u-20261121-ged-asphalt.log`.
+- A kernel-side adapter can consume GED's successful queue notifications
+  before the ioctl returns. It can use the calling thread for scheduler
+  accounting and the GED window ID as the buffer-queue key. Route one
+  completed event per frame into the native FPSGO path. Validate the
+  reported process against the caller, skip compositor and duplicate
+  events, and scope the first test to the foreground game. GED's
+  completed queue and dequeue signals lack the separate begin/end
+  timings of the original FPSGO protocol. Keep that distinction in
+  the adapter and preserve the existing GED GPU policy.
+- The next device test should confirm Asphalt's own queue notifications
+  produce XGF runtimes and FBT decisions, then compare frame times and
+  CPU residency with the adapter disabled and enabled. This probe used
+  a private trace instance and changed no Android or kernel settings.
+
 ## T227U vendor module ABI audit
 
 All ten archived modules matched the SHA-256 of their device copies.
