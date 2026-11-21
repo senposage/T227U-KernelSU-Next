@@ -219,7 +219,11 @@ git show --format= --unified=0 ab5b59df0
   expected build stamp `#19 SMP PREEMPT Fri Nov 20 21:10:56 EST 2026`.
   Wi-Fi associated successfully and `wlan_drv_gen4m` and
   `bt_drv_connac1x` were loaded. Bluetooth was off during the check.
-  ZRAM reported `lzo [lz4] zstd`, with `disksize=0` and no active swap.
+  The initial read at Android boot completion preceded Kernel Adiutor's
+  setup. After its apply completed, ADB verified 2000 MiB of active LZ4
+  ZRAM at priority `-2`, with 34,048 KiB in use and no disk-backed swap.
+  VM readback was `swappiness=100`, `vfs_cache_pressure=100`,
+  `min_free_kbytes=6484`, `watermark_scale_factor=10` and `page-cluster=0`.
   The boot log search found no unknown symbols, version mismatches,
   sleep-in-atomic warnings or ZRAM errors. Bluetooth operation and an
   LZ4 ZRAM map-load A/B on the conservative profile remain to be tested.
