@@ -457,3 +457,18 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   resize on this build remain to be tested. The tablet baseline still
   runs #22, with F2FS `/data`, `mq-deadline` selected on `mmcblk0`,
   and the cgroup-v1 memory controller at `/dev/memcg`.
+
+## 2026-11-21 ZRAM page-in candidate
+
+- Build #25 adds `d5a666c06` on `codex/t227u-f2fs-bringup`. Both
+  successful page-in paths now leave the compressed backing in place.
+  Verified the ordinary slot-release callback remains in `swapfile.c`.
+- Incremental build and full link passed in the existing output directory
+  with the r8 configuration and vendor ABI string. The raw CRC differences
+  matched #22 and the applied gate verified all 197 vendor exports.
+- Image SHA-256
+  `ca8bb57a935feb0aa005f1a64918021c1e5d6d00179ef5a80912176280f065d7`.
+  Logs `/home/legit-su/t227u-20261121-pagein-build.log` and
+  `/home/legit-su/t227u-20261121-pagein-crc.log`.
+- Boot, radio, and live ZRAM smoke tests remain pending. No dedicated
+  page-in A/B was run.
