@@ -264,9 +264,18 @@ git show --format= --unified=0 ab5b59df0
   `5a12f1be69558e980731106380275f4a6910b9c37d7161dea5f725cbb0c35108`.
   Installer, DTB and sole manager APK match `T227U-LZ4.zip`.
   ZIP integrity and embedded image comparison passed.
-- Device result: **untested**. Expected build stamp `#20`. Confirm boot,
-  Wi-Fi, configured LZ4 swap and I/O error counters. No dictionary or
-  stream-ownership change is included in this image.
+- Device result: **booted**. ADB confirmed build `#20`, Android boot
+  completion, Wi-Fi association and loaded Wi-Fi/Bluetooth modules.
+  After Kernel Adiutor's apply completed, ADB confirmed 2000 MiB LZ4
+  ZRAM at priority `-2`, the conservative VM settings and zero
+  ZRAM I/O errors. Swap-out was active. Sustained page-in and workload
+  timing remain untested on this image.
+- The boot log still shows unresolved vendor FPSGO symbols and CRC
+  mismatches in FM radio and GPS modules. The same errors are present
+  in the pre-LZ4 `E:\T227U-test-after-crash-dmesg.txt` capture. The
+  vendor CRC gate covers the mapped symbols and the Wi-Fi/Bluetooth
+  drivers loaded in this boot. No dictionary or stream-ownership change
+  is included in this image.
 
 ## Device-side vendor change
 
