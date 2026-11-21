@@ -2201,7 +2201,6 @@ static void zram_handle_comp_page(struct work_struct *work)
 	struct zram_wb_work *zw = container_of(work, struct zram_wb_work, work);
 	struct zram_wb_header *zhdr;
 	struct zram *zram = zw->zram;
-	struct zcomp_strm *zstrm;
 	struct page **src_page = zw->src_page;
 	struct page *dst_page = zw->dst_page;
 	struct bio *bio = zw->bio;
@@ -2213,6 +2212,7 @@ static void zram_handle_comp_page(struct work_struct *work)
 	int ret = 0;
 	u32 index;
 	u8 *src, *dst, *src_decomp;
+	void *read_buf = NULL;
 	bool spanned;
 
 	if (zw->ppr) {
@@ -2238,24 +2238,22 @@ static void zram_handle_comp_page(struct work_struct *work)
 		goto out;
 	}
 
-	dst = kmap_atomic(dst_page);
-	zstrm = zcomp_stream_get(zram->comp);
-	spanned = (offset + header_sz + size > PAGE_SIZE) ? true : false;
-	if (spanned) {
+	spanned = offset + header_sz + size > PAGE_SIZE;
+	if (spanned)
 		kunmap_atomic(src);
+	dst = kmap_atomic(dst_page);
+	if (spanned) {
 		if (size == PAGE_SIZE) {
 			copy_to_buf(dst, src_page, page_idx, offset + header_sz, size);
-			goto out_huge;
+			goto out_unmap;
 		}
-		src = zstrm->tmpbuf;
-		copy_to_buf(src, src_page, page_idx, offset + header_sz, size);
-		src_decomp = src;
+		read_buf = zcomp_read_buf_get(zram->comp);
+		copy_to_buf(read_buf, src_page, page_idx, offset + header_sz, size);
+		src_decomp = read_buf;
 	} else {
 		src_decomp = src + offset + header_sz;
 	}
-	ret = zcomp_decompress(zstrm, src_decomp, size, dst);
-out_huge:
-	zcomp_stream_put(zram->comp);
+	ret = zcomp_decompress(zram->comp, src_decomp, size, dst);
 	if (ret) {
 		struct hex_dump_pages hdp;
 
@@ -2265,6 +2263,9 @@ out_huge:
 		handle_decomp_fail(zram->compressor, ret, offset + header_sz,
 				   src_decomp, size, &hdp);
 	}
+	if (read_buf)
+		zcomp_read_buf_put(zram->comp);
+out_unmap:
 	kunmap_atomic(dst);
 	if (!spanned)
 		kunmap_atomic(src);
@@ -2909,12 +2910,9 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 		kunmap_atomic(dst);
 		ret = 0;
 	} else {
-		struct zcomp_strm *zstrm = zcomp_stream_get(zram->comp);
-
 		dst = kmap_atomic(page);
-		ret = zcomp_decompress(zstrm, src, size, dst);
+		ret = zcomp_decompress(zram->comp, src, size, dst);
 		kunmap_atomic(dst);
-		zcomp_stream_put(zram->comp);
 	}
 
 	/* Should NEVER happen. BUG() if it does. */

@@ -31,8 +31,7 @@ static int lz4_compress(void *workspace, const void *src, void *dst,
 	return 0;
 }
 
-static int lz4_decompress(void *workspace, const void *src,
-			  unsigned int src_len, void *dst)
+static int lz4_decompress(const void *src, unsigned int src_len, void *dst)
 {
 	int len = LZ4_decompress_safe(src, dst, src_len, PAGE_SIZE);
 
@@ -43,5 +42,5 @@ const struct zcomp_ops backend_lz4 = {
 	.create_ctx = lz4_create_ctx,
 	.destroy_ctx = lz4_destroy_ctx,
 	.compress = lz4_compress,
-	.decompress = lz4_decompress,
+	.decompress_stateless = lz4_decompress,
 };

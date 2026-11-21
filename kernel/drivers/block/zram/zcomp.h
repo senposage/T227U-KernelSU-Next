@@ -18,6 +18,8 @@ struct zcomp_ops {
 			unsigned int *dst_len);
 	int (*decompress)(void *ctx, const void *src, unsigned int src_len,
 			  void *dst);
+	int (*decompress_stateless)(const void *src, unsigned int src_len,
+				    void *dst);
 };
 
 struct zcomp_strm {
@@ -25,12 +27,13 @@ struct zcomp_strm {
 	void *buffer;
 	const struct zcomp_ops *ops;
 	void *ctx;
-	void *tmpbuf;
 };
+
+struct zcomp_cpu;
 
 /* dynamic per-device compression frontend */
 struct zcomp {
-	struct zcomp_strm * __percpu *stream;
+	struct zcomp_cpu __percpu *cpu;
 	const char *name;
 	const struct zcomp_ops *ops;
 	struct hlist_node node;
@@ -47,10 +50,15 @@ void zcomp_destroy(struct zcomp *comp);
 struct zcomp_strm *zcomp_stream_get(struct zcomp *comp);
 void zcomp_stream_put(struct zcomp *comp);
 
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+void *zcomp_read_buf_get(struct zcomp *comp);
+void zcomp_read_buf_put(struct zcomp *comp);
+#endif
+
 int zcomp_compress(struct zcomp_strm *zstrm,
 		const void *src, unsigned int *dst_len);
 
-int zcomp_decompress(struct zcomp_strm *zstrm,
+int zcomp_decompress(struct zcomp *comp,
 		const void *src, unsigned int src_len, void *dst);
 
 bool zcomp_set_max_streams(struct zcomp *comp, int num_strm);

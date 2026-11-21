@@ -19,6 +19,14 @@
 #include "zcomp.h"
 #include "backend_lz4.h"
 
+struct zcomp_cpu {
+	struct zcomp_strm *stream;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	/* Scratch space only for compressed writeback objects spanning pages. */
+	void *read_buf;
+#endif
+};
+
 static const char * const backends[] = {
 	"lzo",
 #if IS_ENABLED(CONFIG_CRYPTO_LZ4)
@@ -72,10 +80,6 @@ static void zcomp_strm_free(struct zcomp_strm *zstrm)
 	if (!IS_ERR_OR_NULL(zstrm->ctx))
 		zstrm->ops->destroy_ctx(zstrm->ctx);
 	free_pages((unsigned long)zstrm->buffer, 1);
-	if (zstrm->tmpbuf) {
-		free_pages((unsigned long)zstrm->tmpbuf, 1);
-		zstrm->tmpbuf = NULL;
-	}
 	kfree(zstrm);
 }
 
@@ -95,8 +99,7 @@ static struct zcomp_strm *zcomp_strm_alloc(struct zcomp *comp)
 	 * case when compressed size is larger than the original one
 	 */
 	zstrm->buffer = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
-	zstrm->tmpbuf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
-	if (!zstrm->buffer || !zstrm->tmpbuf)
+	if (!zstrm->buffer)
 		goto fail;
 
 	return zstrm;
@@ -156,13 +159,25 @@ ssize_t zcomp_available_show(const char *comp, char *buf)
 
 struct zcomp_strm *zcomp_stream_get(struct zcomp *comp)
 {
-	return *get_cpu_ptr(comp->stream);
+	return get_cpu_ptr(comp->cpu)->stream;
 }
 
 void zcomp_stream_put(struct zcomp *comp)
 {
-	put_cpu_ptr(comp->stream);
+	put_cpu_ptr(comp->cpu);
 }
+
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+void *zcomp_read_buf_get(struct zcomp *comp)
+{
+	return get_cpu_ptr(comp->cpu)->read_buf;
+}
+
+void zcomp_read_buf_put(struct zcomp *comp)
+{
+	put_cpu_ptr(comp->cpu);
+}
+#endif
 
 int zcomp_compress(struct zcomp_strm *zstrm,
 		const void *src, unsigned int *dst_len)
@@ -186,18 +201,28 @@ int zcomp_compress(struct zcomp_strm *zstrm,
 	return zstrm->ops->compress(zstrm->ctx, src, zstrm->buffer, dst_len);
 }
 
-int zcomp_decompress(struct zcomp_strm *zstrm,
+int zcomp_decompress(struct zcomp *comp,
 		const void *src, unsigned int src_len, void *dst)
 {
-	return zstrm->ops->decompress(zstrm->ctx, src, src_len, dst);
+	struct zcomp_strm *zstrm;
+	int ret;
+
+	if (comp->ops->decompress_stateless)
+		return comp->ops->decompress_stateless(src, src_len, dst);
+
+	zstrm = zcomp_stream_get(comp);
+	ret = comp->ops->decompress(zstrm->ctx, src, src_len, dst);
+	zcomp_stream_put(comp);
+	return ret;
 }
 
 int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node)
 {
 	struct zcomp *comp = hlist_entry(node, struct zcomp, node);
+	struct zcomp_cpu *cpu_data = per_cpu_ptr(comp->cpu, cpu);
 	struct zcomp_strm *zstrm;
 
-	if (WARN_ON(*per_cpu_ptr(comp->stream, cpu)))
+	if (WARN_ON(cpu_data->stream))
 		return 0;
 
 	zstrm = zcomp_strm_alloc(comp);
@@ -205,19 +230,29 @@ int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node)
 		pr_err("Can't allocate a compression stream\n");
 		return -ENOMEM;
 	}
-	*per_cpu_ptr(comp->stream, cpu) = zstrm;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	cpu_data->read_buf = (void *)get_zeroed_page(GFP_KERNEL);
+	if (!cpu_data->read_buf) {
+		zcomp_strm_free(zstrm);
+		return -ENOMEM;
+	}
+#endif
+	cpu_data->stream = zstrm;
 	return 0;
 }
 
 int zcomp_cpu_dead(unsigned int cpu, struct hlist_node *node)
 {
 	struct zcomp *comp = hlist_entry(node, struct zcomp, node);
-	struct zcomp_strm *zstrm;
+	struct zcomp_cpu *cpu_data = per_cpu_ptr(comp->cpu, cpu);
 
-	zstrm = *per_cpu_ptr(comp->stream, cpu);
-	if (!IS_ERR_OR_NULL(zstrm))
-		zcomp_strm_free(zstrm);
-	*per_cpu_ptr(comp->stream, cpu) = NULL;
+	if (cpu_data->stream)
+		zcomp_strm_free(cpu_data->stream);
+	cpu_data->stream = NULL;
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	free_page((unsigned long)cpu_data->read_buf);
+	cpu_data->read_buf = NULL;
+#endif
 	return 0;
 }
 
@@ -225,8 +260,8 @@ static int zcomp_init(struct zcomp *comp)
 {
 	int ret;
 
-	comp->stream = alloc_percpu(struct zcomp_strm *);
-	if (!comp->stream)
+	comp->cpu = alloc_percpu(struct zcomp_cpu);
+	if (!comp->cpu)
 		return -ENOMEM;
 
 	ret = cpuhp_state_add_instance(CPUHP_ZCOMP_PREPARE, &comp->node);
@@ -235,14 +270,14 @@ static int zcomp_init(struct zcomp *comp)
 	return 0;
 
 cleanup:
-	free_percpu(comp->stream);
+	free_percpu(comp->cpu);
 	return ret;
 }
 
 void zcomp_destroy(struct zcomp *comp)
 {
 	cpuhp_state_remove_instance(CPUHP_ZCOMP_PREPARE, &comp->node);
-	free_percpu(comp->stream);
+	free_percpu(comp->cpu);
 	kfree(comp);
 }
 
