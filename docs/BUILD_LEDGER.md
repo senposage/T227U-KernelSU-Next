@@ -711,3 +711,13 @@ add an initramfs hook and leaves manual ZRAM configuration available.
 - Both APKs are unsigned ROM integration artifacts. The current
   GSI uses its own platform signer, so install and FM playback
   testing still require suitable signing and integration.
+
+- On request, a separate signed APK variant with its own application UID
+  and its signed recordings companion were sideloaded. KernelSU Next
+  granted root to `com.android.fmradio` using the stock app-profile CLI.
+  Launching reached the FM activity and then crashed during
+  `FmService` construction. Android's audio service denied
+  `MODIFY_AUDIO_ROUTING` in `getMediaAudioProductStrategy()`.
+  The two data apps remain installed and the FM app's root profile remains
+  granted. The platform integration ZIP and the system partition were
+  unchanged.
