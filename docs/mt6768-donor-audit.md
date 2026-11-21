@@ -1,13 +1,15 @@
 # MT6768 donor audit
 
-Donor: `mt6768-S/android_kernel_xiaomi_mt6768`, branch `lineage-24.0`.
+Donor: `mt6768-S/android_kernel_xiaomi_mt6768`, branch `lineage-24.0`,
+pinned at `31c653fb625385710583e329cdbf56e56f17a4ae`.
 
-This is a donor review, not a merge. The donor graph contains 835,520
-reachable commits, including complete Linux/Android ancestry. Review therefore
-targets the donor's recent overlay/backport window and inspects each portable
-candidate before it is staged on `codex/mt6768-donor-audit`.
+The donor graph includes complete Linux/Android ancestry. The audit
+targets its recent overlay and backports. On 2026-11-21, the first 100
+commits were screened by subject, the next 300 were queried for matching
+subsystems, and the candidates below were checked against their diffs and
+the T227U call paths. The working branch is `codex/t227u-f2fs-bringup`.
 
-## Staged and object-compiled
+## Carried in the T227U r8 source
 
 | Area | Donor commits | Reason |
 | --- | --- | --- |
@@ -29,9 +31,24 @@ candidate before it is staged on `codex/mt6768-donor-audit`.
 | MTK MSDC | `1fc9b7e48231`, `ab75a549f9fa` | Makes DMA preparation data-scoped and refuses a request when DMA mapping fails, preventing commands from reaching an invalid DMA mapping. |
 | Scheduler logging | Local correction | Demotes the expected pre-domain EAS initialization retry from `pr_info` and avoids emitting the paired initializer banner before a domain exists. |
 
-Each affected object compiled with the preserved T227U r7 configuration in a
-separate audit output directory. These commits are not yet in `main` and have
-not produced a release.
+The r8 prerelease was built from `e952c8902`. These earlier fixes were
+object-compiled during the audit and carried forward into that source.
+
+## 2026-11-21 candidate batch
+
+| Area | Donor commits | Disposition and verification |
+| --- | --- | --- |
+| CPUFreq sysfs | `0eceef464ddb`, `7a85d5bf3749` | `46aa41a65` initializes masks, locks, work, and release completion before publishing the policy kobject. A sysfs callback can take the policy lock, and an add failure can complete the initialized release wait. |
+| CMA activation | `9f0f50701bd3` | `3725c88a1` rejects a reserved area with no initialized bitmap. An earlier activation failure can leave a later area in that state. |
+| MMC card add failure | `1a82eb59ae1b` | `213d65daf` drops the OF node acquired before `device_add()` even when card registration fails. |
+| Scatterlist allocation | `30d9ba69c13f` | `3a399c2b1` uses the slab allocator for every standard `sg_alloc_table()` chunk, paired with `kfree()`. Custom allocator callbacks keep their existing behavior. |
+| Video buffer wakeup | `669d186355c8` | `eddb9b267` gives the scheduler a synchronous handoff hint on completion. Measure camera/video dequeue latency and drops on-device. |
+| Alarm timer noise | `c5a7a1ec158e` | `5cfbd2725` removes a routine enqueue notice from the locked timer path while retaining alarm error logs. |
+
+All six affected objects compiled in the established T227U output
+directory with the r8 configuration unchanged. The public r8 artifact
+remains based on `e952c8902`. This candidate batch still needs a full
+link, the vendor CRC gate, and device testing before packaging.
 
 ## Re-reviewed applicability
 
@@ -42,13 +59,12 @@ not produced a release.
   absent here. Porting them requires the matching vendor WLAN source/module
   package and a radio regression suite; this is a source-availability and ABI
   boundary, not a generic “MediaTek” rejection.
-- MT6768 OPP mapping (`c3fb3ee65509`): the earlier hardware-specific
-  classification was incorrect. The donor reads active uPower tables at
-  runtime; it does not hard-code MT6768 frequencies. It is not ready to port
-  unchanged, however: it snapshots stock capacities once, while this tree has
-  runtime-selectable MT6765 OC bins. A T227U port must derive capacities from
-  the live CPUFreq/OC table and refresh them when the exposed bin set changes.
-  This is a concrete local prerequisite, not a rejection.
+- OPP mapping (`c3fb3ee65509`): the active T227U port `2fbbaed0f` maps
+  utilization clamps through the CPUFreq table and accounts for exposed
+  OC bins. The tested r8 config enables `CONFIG_UCLAMP_MAP_OPP`.
+- Page allocator watermark accounting (`78cd7af83b38`): already carried.
+  Both the slow path and the order-zero fast path subtract unavailable
+  high-atomic and CMA reserves.
 - MT6768/Mali GPU, Xiaomi device-tree, camera, display, audio, touch,
   fingerprint, charging, and vendor connectivity changes: hardware-specific.
 - The donor's full modern CPUFreq QoS/policy series: it cannot be taken as one
@@ -59,44 +75,22 @@ not produced a release.
   incorrect. The T227U fork has the discard worker; the corrected teardown
   ordering is now carried on `codex/t227u-f2fs-bringup`.
 
-## Deferred pending a dedicated test plan
+## Follow-up and prerequisites
 
-- **P1 — Binder backport validation:** `eeef72d8cae5`, `229670361c29`, and
-  `544b1575a0e1` are temporarily reverted for an A/B test after Asphalt
-  showed repeated `FAILED BINDER TRANSACTION` messages followed by a reboot.
-  The reader-availability change alters Binder delivery eligibility and is the
-  primary candidate. Do not restore any of the three without a captured
-  Binder-driver failure signature and a targeted test plan.
-- **P2 — FPSGO/XGF vendor-module parity:** `fpsgo.ko` fails to load because
-  the source-built kernel does not export its required XGF interfaces. The
-  baseline CPUFreq governor and PPM paths remain functional, but frame-aware
-  CPU/GPU boost and frame pacing are absent. Restore the matching in-kernel
-  FPSGO/XGF implementation (or a compatible replacement), then verify module
-  load, `/sys/kernel/fpsgo`, game frame pacing, and the normal CPU/GPU thermal
-  limits. This is the first compatibility item for the next round.
-- LZO/LZO-RLE safety series: relevant because T227U enables ZRAM and LZO, but
-  it is an ordered multi-commit compressor rewrite and must be imported and
-  stress-tested as a complete series.
-- ZRAM writeback race and CMA-allocation changes: the donor implementation
-  differs substantially. The CMA change could starve MediaTek multimedia
-  allocations; do not import by default.
-- CMA, page allocator, memcg reclaim, Binder freezer, BPF, RCU, and broad
-  upstream security series: evaluate as dependency-aware batches rather than
-  cherry-picking isolated commits from a newer kernel.
-- Policy/tuning changes such as linear scheduler scaling and vmstat cadence:
-  behavior changes, not correctness fixes; require benchmarks before adoption.
-
-## Performance candidates (not staged)
-
-- F2FS checkpoint reduction (`72c6b13f468e`): may reduce metadata/fsync
-  overhead after directory-xattr updates. It changes checkpoint triggering and
-  must pass power-loss and filesystem stress testing before it is considered.
-- F2FS linear dentry search (`df304b987283`): a Unicode casefold correctness
-  fallback, not a general directory-lookup optimization; it can increase work
-  on the fallback path.
-- CPUFreq QoS/policy conversion and scheduler scaling: potentially useful
-  latency-policy work, but incompatible as isolated imports with this MT6765
-  CPUFreq/PPM implementation. Evaluate only as a dedicated, benchmarked port.
+| Area | Donor commits or source | Next work |
+| --- | --- | --- |
+| Binder | `eeef72d8cae5`, `229670361c29`, `544b1575a0e1` | The temporary A/B revert ended with restoration in `a0c343bad` and the context-name lifetime correction in `ab5b59df0`. The game failure also occurred on the earlier kernel and cleared after resetting app data. Keep Binder tests separate from game data state. |
+| FPSGO/XGF | `9c1e50771` | In-tree FPSGO v3 is enabled in r8. Measure pacing in a controlled run and verify which XGF interfaces the remaining vendor path uses. |
+| F2FS | `72c6b13f468e`, `df304b987283` | Checkpoint reduction and the encrypted-casefold fallback are included in r8. Validate encrypted directory lookup, fsync, and shutdown recovery on F2FS before claiming a performance gain. |
+| DMA-BUF fences | `a726be2dfe3b` | The donor drops names from `SYNC_IOC_FILE_INFO` and removes `sync_file_get_name()`, which the T227U `sync_debug.c` still calls. Evaluate a small inline fence-info buffer with a heap fallback that preserves all returned fields. Measure fence counts and allocation cost first. |
+| ZRAM and CMA | `821e2b0937da`, `9cd286e1c961` | The writeback access-race fix is already in `3485fb54b`. Allowing ZRAM to use CMA needs per-area camera/video allocation and swap-pressure measurements. The donor uses the existing `__GFP_CMA` flag and strips it from unmovable zsmalloc metadata. |
+| CMA telemetry | `aea2e5ab344d`, `6d2a68e93757`, `923a261cb379` | Consider read-only counters before granting ZRAM access to CMA. Keep existing VM event numbers stable and isolate the bitmap-lock conversion from telemetry so its interrupt and latency consequences can be tested separately. |
+| Proactive reclaim | `31c653fb6253` | The local reclaim helper, retry constant, and delegation flag exist. First confirm that the Android GSI exposes the cgroup-v2 memory controller and identify the intended userspace caller. The opt-in interface alone changes no reclaim behavior. |
+| LZO | `888466be8c6b`, `f65ee17a14b9`, `4a40ed11eb3d` | The bounded compressor is already wired into crypto, regcache, and F2FS by `9e4f655f9`. LZO-RLE still needs its ordered codec and crypto registration series with empty/short input, alignment, and legacy stream tests. Branch hints can be measured separately. Keep the tested LZ4 default for any codec comparison. |
+| MMC diagnostics | `c6ff70f2b100` | The donor replaces the host debug callbacks with no-ops. Profile the hot-path logging cost on T227U before making command history conditional, and retain the I/O failure diagnostics used to validate the eMMC fixes. |
+| Power-supply uevents | `827999220f8e` | Replace per-property allocation only with bounded name handling that preserves the full uppercase uevent key. The donor's fixed buffer has no length check. Benchmark charging notification traffic before staging. |
+| Scheduler and counters | `99fe5134769f`, `e99d90895fd4`, `0d1ad9ba8013` | Linear scaling and a two-second vmstat interval are policy changes. Measure wakeup latency and LMKD/reclaim behavior with the existing Samsung defaults as the control. The vmstat branch hints can be measured independently. |
+| GPU wake hint | `dbc154a64d7d` | The donor targets a specific Mali Valhall driver path. Identify the matching completion producer in the active T227U graphics driver and confirm its sleep behavior before adapting the hint. |
 
 ## Release rule
 

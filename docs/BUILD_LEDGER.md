@@ -414,3 +414,20 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   before link completion and both build processes were stopped to protect the
   shared output directory. Therefore `vmlinux`, `Image.gz`, the vendor CRC
   gate, a ZIP, and a device test are all **not produced / not claimed**.
+
+## 2026-11-21 MT6768 candidate compile checks
+
+- Branch `codex/t227u-f2fs-bringup`, based on the r8 release source and
+  later documentation. Commits `46aa41a65`, `3725c88a1`, `213d65daf`,
+  `3a399c2b1`, `eddb9b267`, and `5cfbd2725` record the exact patches.
+- Used the established source, toolchain, make flags, and
+  `/home/legit-su/t227u-public-repro-build` output directory. The
+  configuration SHA-256 matched before and after both object builds
+  (`ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`).
+- Compiled `lib/scatterlist.o` and
+  `drivers/media/common/videobuf2/videobuf2-core.o` first. The video
+  object references `__wake_up_sync`. A second object build passed for
+  `drivers/cpufreq/cpufreq.o`, `mm/cma.o`, `drivers/mmc/core/bus.o`, and
+  `kernel/time/alarmtimer.o`.
+- Full link, vendor CRC verification, boot, storage/SD, governor/hotplug,
+  and camera/video tests remain pending for this candidate batch.
