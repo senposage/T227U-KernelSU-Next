@@ -178,3 +178,38 @@ it was tested here.
   race start. This run did not collect full-race timing.
 - Local logs: `E:\T227U-LZ4M-20261120-214256.log` and
   `E:\T227U-LZ4M-20261120-214256-markers.log`.
+
+## R-20261120-LZ4D-ASPHALT
+
+- Kernel #22 with the original 16 KiB Asphalt dictionary loaded by KA
+  and 2040 MiB of logical ZRAM. Map load was marked at device epoch
+  `1795232047` and race start at `1795232097`. The same game PID
+  remained alive through the later training capture. LMKD killed
+  background processes. Kernel OOM and ZRAM I/O error counters
+  stayed at zero.
+- Between the nearest samples before the map and race markers, the
+  tablet swapped in about 158 MiB, swapped out 673 MiB and added
+  236,305 direct-scan pages. Near race start, 1,031 MiB of logical
+  pages occupied about 341 MiB of physical ZRAM. Earlier plain-LZ4
+  runs reported about 34 to 38% physical/logical at comparable
+  footprints. The runs use different starting states and cannot
+  establish a causal speed or memory improvement.
+- Fresh training capture at epoch `1795232289`: 32 MiB from the
+  same four offsets in the live game Java heap, with 844 nonzero
+  pages. Memory capture activity is excluded from performance
+  interpretation.
+- Cross-check using LZ4 CLI compressed size, relative to plain LZ4:
+
+  | Held-out capture | Pages | Original 16 KiB | Retry 16 KiB |
+  | --- | ---: | ---: | ---: |
+  | Original | 40 | 30.29% smaller | 22.01% smaller |
+  | Retry | 85 | 13.33% smaller | 25.46% smaller |
+
+  The diagonal compares held-out pages from the candidate's own
+  session. The off-diagonal compares separate runs of the same
+  workload. None of these are kernel throughput measurements.
+- Local logs: `E:\T227U-LZ4D-20261120-223204.log`,
+  `E:\T227U-LZ4D-20261120-223204-markers.log`, and
+  `E:\T227U-LZ4D-20261120-223204-lmk.log`.
+  The cross-check JSON and retry dictionary are local under
+  `E:\zram-bench-20261120`. The retry dictionary was not applied.

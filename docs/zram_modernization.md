@@ -100,18 +100,23 @@ check block round trips and reset lifetime, and measure the template-copy
 cost against rebuilding the hash table on the tablet. Keep workload memory
 and resulting dictionaries local.
 
-### Pending broader training script
+### Broader training
 
-- Accept separate captures from gaming, browsing and regular app switching.
-  Limit training bytes per capture and per workload so one long session
-  does not dominate. Deduplicate repeated pages before sampling.
-- Keep whole sessions out of training to prevent overlap between training
-  and validation. Report plain LZ4, workload-specific dictionaries and a
-  mixed dictionary per held-out workload. Show compressed bytes, new
-  incompressible pages and ARM64 compression/decompression cost.
-- Preserve the file hashes, seed, training settings and aggregate metrics.
-  Exclude raw captures and trained dictionary contents from version control
-  and releases.
+`tools/t227u/train_lz4_dictionary.py` takes raw 4 KiB page captures and
+uses the Zstandard dictionary trainer to generate LZ4 dictionary bytes.
+It samples a bounded number per capture and drops duplicate and
+same-filled pages. With `zstd` installed, an example is:
+
+```sh
+python3 tools/t227u/train_lz4_dictionary.py -o zram-lz4.dict \
+  asphalt.bin browsing.bin app-switching.bin
+```
+
+Keep whole sessions out of training to test generalization. Compare the
+baseline, workload-specific dictionary and mixed dictionary separately
+on each held-out workload. Keep file hashes, seed, training settings and
+aggregate metrics in the test record. Keep raw captures and generated
+dictionaries private, outside Git and releases.
 
 ### Dictionary lifetime rule
 
