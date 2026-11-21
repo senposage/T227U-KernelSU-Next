@@ -313,6 +313,41 @@ git show --format= --unified=0 ab5b59df0
   swap has no disk backing, so it did not exercise the new writeback
   bounce buffer.
 
+### B-20261120-LZ4-DICT
+
+- Source: `e952c890224f81755de77f6f9db13f7e6ab43e90` on
+  `codex/t227u-f2fs-bringup`. Exact hunks:
+  `git show --format= --unified=0 e952c8902`.
+- Added opt-in, per-device raw dictionary upload via
+  `comp_dictionary_size` and `comp_dictionary`. Writes are serialized
+  under the initialization lock, offsets must be sequential and disk
+  initialization requires a complete upload. The dictionary buffer
+  transfers to the compressor only after successful setup and CPU stream
+  creation. Reset clears staged data, then frees the live parameters
+  after stream teardown. LZ4 copies the prepared template into the
+  compression workspace and decodes using immutable dictionary bytes.
+  The default path starts with an empty dictionary.
+- ARM64 codec check on the tablet passed 1,024 plain round trips and
+  192 dictionary page round trips at 16 KiB and 64 KiB. The template
+  and per-page dictionary reload produced identical blocks. The tablet
+  was running #21 for this codec-object test. Live #22 sysfs and
+  block-device round trips remain to be verified.
+- Build: same source, toolchain, output and flags as B-20261120-LZ4-READ.
+  Full link passed and embedded config matched the tested T227U-ZS
+  config. Build stamp: `#22 SMP PREEMPT Fri Nov 20 22:05:08 EST 2026`.
+  Build log: `/home/legit-su/t227u-lz4-dict-build.log`.
+- CRC gate: **PASS**, 197 mapped symbols present, 28 corrected, zero
+  remaining. Gate log: `/home/legit-su/t227u-lz4-dict-crc.log`.
+- Kernel image SHA-256:
+  `9d1533c9e02726e34f7c5f6ab41cf365011277eaea0e60e2fbb208c63543fa4a`.
+- Local test ZIP: `E:\T227U-LZ4D.zip`. SHA-256:
+  `f6f36c9be674c8d1c41dd7380f81ac49d983689e73253bd9c2debec3e73f341e`.
+  Installer, DTB, single KernelSU manager APK, embedded image identity,
+  and ZIP integrity checked. No dictionary data is bundled.
+- Device result: **untested**. Check boot and the default KA swap profile,
+  then validate partial upload rejection, dictionary compression and
+  readback, active mutation rejection, and reset on an isolated device.
+
 ## Device-side vendor change
 
 Performed in TWRP recovery on 2026-11-20, independently of any boot ZIP:

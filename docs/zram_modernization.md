@@ -34,8 +34,8 @@
 
 The starting 4.19 tree used Crypto API `zcomp` and one per-CPU stream shared
 by reads and writes. The T227U port now has a direct LZ4 backend with
-backend-owned contexts. Device-wide dictionary parameters and a dictionary
-upload interface are still pending.
+backend-owned contexts. The dictionary test build adds immutable
+device-wide parameters and a bounded upload interface.
 
 1. Identify the exact final upstream commits for stream separation, shared
    decompression streams, bounce buffers, and idle-stream borrowing.
@@ -87,16 +87,31 @@ None of the dictionary patches are included in the plain-LZ4 test build.
 | [`7b0f677c7bd5`](https://github.com/torvalds/linux/commit/7b0f677c7bd539bd5695b14f9a195e257c3b4463) | Validate the selected backend and dictionary size before enabling the disk. Protect upload, initialization and reset with the existing initialization lock. |
 
 Upstream's `algorithm_params` reads a dictionary by filename inside the
-kernel. This port needs a bounded userspace upload. In this 4.19 tree,
-ordinary kernfs writes are limited to one page per callback. A multi-page
-upload therefore needs explicit staging and commit, including validation
-for incomplete or conflicting writes. It cannot be a single text sysfs
-store for a 16 KiB dictionary.
+kernel. The T227U test build accepts bytes from userspace instead. Select
+`lz4` on an empty device, declare the file's byte length in
+`comp_dictionary_size`, and copy the raw bytes to `comp_dictionary`.
+Use a single uploader. The binary node accepts sequential page-sized
+writes and `disksize` rejects incomplete uploads. A successful
+`disksize` write transfers the dictionary to the live compressor and
+prepares the template. A dictionary stays immutable until reset.
 
 Before accepting a dictionary for a build, validate independent captures,
 check block round trips and reset lifetime, and measure the template-copy
 cost against rebuilding the hash table on the tablet. Keep workload memory
 and resulting dictionaries local.
+
+### Pending broader training script
+
+- Accept separate captures from gaming, browsing and regular app switching.
+  Limit training bytes per capture and per workload so one long session
+  does not dominate. Deduplicate repeated pages before sampling.
+- Keep whole sessions out of training to prevent overlap between training
+  and validation. Report plain LZ4, workload-specific dictionaries and a
+  mixed dictionary per held-out workload. Show compressed bytes, new
+  incompressible pages and ARM64 compression/decompression cost.
+- Preserve the file hashes, seed, training settings and aggregate metrics.
+  Exclude raw captures and trained dictionary contents from version control
+  and releases.
 
 ### Dictionary lifetime rule
 
@@ -144,5 +159,5 @@ boot and live page-in. In the next image `B-20261120-LZ4-READ`, plain LZ4
 decompresses without any mutable compressor context. Compressed vendor
 writeback objects spanning pages still need a separate per-CPU bounce
 page. Crypto API backends continue borrowing a per-CPU transform for
-decoding. Dictionary selection and sleepable shared streams remain
-unimplemented.
+decoding. The dictionary test image is `B-20261120-LZ4-DICT`.
+Sleepable shared streams remain unimplemented.
