@@ -669,6 +669,23 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   `4afbb57777fdc62035512105636afe5f60a19b0229b610042b0cbc36bdd4eb49`.
   Archive membership, integrity and embedded image identity passed.
   All installer payloads and the single manager APK match #27.
-- Device result **untested**. Verify #28 boots with `ged_tgid=-1`,
-  Asphalt produces XGF/FBT samples without manual selection, and
-  forwarding follows the top app across an activity change.
+- Device result **booted**. ADB confirmed #28 and read `ged_tgid=-1`
+  from its default control. Foreground-app switching and Asphalt
+  performance in automatic mode still need a matched test.
+
+## 2026-11-21 MT6631 FM app compatibility
+
+- Build #28 loads `fmradio_drv_mt6631`. The Android 14 GSI exposes
+  `/dev/fm`, the vendor has MT6631 firmware and configuration, and
+  the audio policy includes FM tuner ports. A temporary probe using
+  the MediaTek FM chip-ID ioctl returned `0x6631`. The probe was removed.
+  Station reception and audio playback remain untested.
+- [RevampedFMRadio's MediaTek branch](https://github.com/iusmac/RevampedFMRadio/tree/mtk)
+  uses `/dev/fm` via `libmtkfmjni`.
+  [TechyMinati's FMRadio source](https://github.com/techyminati/android_packages_apps_FMRadio)
+  explicitly supports MT6631. Both use the system shared UID and
+  platform signing. Neither upstream publishes an APK release.
+  The current GSI's framework APK signer differs from the AOSP public
+  platform test certificate. A direct port would need integration and
+  signing with this GSI's platform key, or a separate app design with
+  an explicitly authorized FM backend.
