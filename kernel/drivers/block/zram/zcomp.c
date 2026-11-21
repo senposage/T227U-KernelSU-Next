@@ -39,24 +39,19 @@ static void zcomp_strm_free(struct zcomp_strm *zstrm)
 {
 	if (!IS_ERR_OR_NULL(zstrm->tfm))
 		crypto_free_comp(zstrm->tfm);
-	free_pages((unsigned long)zstrm->buffer, 1);
+	if (zstrm->buffer)
+		free_pages((unsigned long)zstrm->buffer, 1);
 	if (zstrm->tmpbuf) {
 		free_pages((unsigned long)zstrm->tmpbuf, 1);
 		zstrm->tmpbuf = NULL;
 	}
-	kfree(zstrm);
+	zstrm->tfm = NULL;
+	zstrm->buffer = NULL;
 }
 
-/*
- * allocate new zcomp_strm structure with ->tfm initialized by
- * backend, return NULL on error
- */
-static struct zcomp_strm *zcomp_strm_alloc(struct zcomp *comp)
+/* Initialize an embedded per-CPU stream for the selected backend. */
+static int zcomp_strm_init(struct zcomp *comp, struct zcomp_strm *zstrm)
 {
-	struct zcomp_strm *zstrm = kmalloc(sizeof(*zstrm), GFP_KERNEL);
-	if (!zstrm)
-		return NULL;
-
 	zstrm->tfm = crypto_alloc_comp(comp->name, 0, 0);
 	/*
 	 * allocate 2 pages. 1 for compressed data, plus 1 extra for the
@@ -66,9 +61,9 @@ static struct zcomp_strm *zcomp_strm_alloc(struct zcomp *comp)
 	zstrm->tmpbuf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
 	if (IS_ERR_OR_NULL(zstrm->tfm) || !zstrm->buffer || !zstrm->tmpbuf) {
 		zcomp_strm_free(zstrm);
-		zstrm = NULL;
+		return -ENOMEM;
 	}
-	return zstrm;
+	return 0;
 }
 
 bool zcomp_available_algorithm(const char *comp)
@@ -121,12 +116,24 @@ ssize_t zcomp_available_show(const char *comp, char *buf)
 
 struct zcomp_strm *zcomp_stream_get(struct zcomp *comp)
 {
-	return *get_cpu_ptr(comp->stream);
+	for (;;) {
+		struct zcomp_strm *zstrm = raw_cpu_ptr(comp->stream);
+
+		/*
+		 * The stream lock keeps CPU hotplug from freeing its buffers while
+		 * an I/O user holds it.  If migration raced with CPU teardown, the
+		 * buffer was cleared; drop this lock and retry on the current CPU.
+		 */
+		mutex_lock(&zstrm->lock);
+		if (likely(zstrm->buffer))
+			return zstrm;
+		mutex_unlock(&zstrm->lock);
+	}
 }
 
-void zcomp_stream_put(struct zcomp *comp)
+void zcomp_stream_put(struct zcomp_strm *zstrm)
 {
-	put_cpu_ptr(comp->stream);
+	mutex_unlock(&zstrm->lock);
 }
 
 int zcomp_compress(struct zcomp_strm *zstrm,
@@ -168,15 +175,14 @@ int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node)
 	struct zcomp *comp = hlist_entry(node, struct zcomp, node);
 	struct zcomp_strm *zstrm;
 
-	if (WARN_ON(*per_cpu_ptr(comp->stream, cpu)))
+	zstrm = per_cpu_ptr(comp->stream, cpu);
+	if (WARN_ON(zstrm->buffer))
 		return 0;
 
-	zstrm = zcomp_strm_alloc(comp);
-	if (IS_ERR_OR_NULL(zstrm)) {
+	if (zcomp_strm_init(comp, zstrm)) {
 		pr_err("Can't allocate a compression stream\n");
 		return -ENOMEM;
 	}
-	*per_cpu_ptr(comp->stream, cpu) = zstrm;
 	return 0;
 }
 
@@ -185,20 +191,23 @@ int zcomp_cpu_dead(unsigned int cpu, struct hlist_node *node)
 	struct zcomp *comp = hlist_entry(node, struct zcomp, node);
 	struct zcomp_strm *zstrm;
 
-	zstrm = *per_cpu_ptr(comp->stream, cpu);
-	if (!IS_ERR_OR_NULL(zstrm))
-		zcomp_strm_free(zstrm);
-	*per_cpu_ptr(comp->stream, cpu) = NULL;
+	zstrm = per_cpu_ptr(comp->stream, cpu);
+	mutex_lock(&zstrm->lock);
+	zcomp_strm_free(zstrm);
+	mutex_unlock(&zstrm->lock);
 	return 0;
 }
 
 static int zcomp_init(struct zcomp *comp)
 {
-	int ret;
+	int ret, cpu;
 
-	comp->stream = alloc_percpu(struct zcomp_strm *);
+	comp->stream = alloc_percpu(struct zcomp_strm);
 	if (!comp->stream)
 		return -ENOMEM;
+
+	for_each_possible_cpu(cpu)
+		mutex_init(&per_cpu_ptr(comp->stream, cpu)->lock);
 
 	ret = cpuhp_state_add_instance(CPUHP_ZCOMP_PREPARE, &comp->node);
 	if (ret < 0)

@@ -2238,8 +2238,8 @@ static void zram_handle_comp_page(struct work_struct *work)
 		goto out;
 	}
 
-	dst = kmap_atomic(dst_page);
 	zstrm = zcomp_stream_get(zram->comp);
+	dst = kmap_atomic(dst_page);
 	spanned = (offset + header_sz + size > PAGE_SIZE) ? true : false;
 	if (spanned) {
 		kunmap_atomic(src);
@@ -2255,7 +2255,7 @@ static void zram_handle_comp_page(struct work_struct *work)
 	}
 	ret = zcomp_decompress(zstrm, src_decomp, size, dst);
 out_huge:
-	zcomp_stream_put(zram->comp);
+	zcomp_stream_put(zstrm);
 	if (ret) {
 		struct hex_dump_pages hdp;
 
@@ -2914,7 +2914,7 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 		dst = kmap_atomic(page);
 		ret = zcomp_decompress(zstrm, src, size, dst);
 		kunmap_atomic(dst);
-		zcomp_stream_put(zram->comp);
+		zcomp_stream_put(zstrm);
 	}
 
 	/* Should NEVER happen. BUG() if it does. */
@@ -3008,7 +3008,7 @@ compress_again:
 	kunmap_atomic(src);
 
 	if (unlikely(ret)) {
-		zcomp_stream_put(zram->comp);
+		zcomp_stream_put(zstrm);
 		pr_err("Compression failed! err=%d\n", ret);
 		zs_free(zram->mem_pool, handle);
 		return ret;
@@ -3036,7 +3036,7 @@ compress_again:
 				__GFP_HIGHMEM |
 				__GFP_MOVABLE);
 	if (!handle) {
-		zcomp_stream_put(zram->comp);
+		zcomp_stream_put(zstrm);
 		atomic64_inc(&zram->stats.writestall);
 		handle = zs_malloc(zram->mem_pool, comp_len,
 				GFP_NOIO | __GFP_HIGHMEM |
@@ -3051,7 +3051,7 @@ compress_again:
 	update_used_max(zram, alloced_pages);
 
 	if (zram->limit_pages && alloced_pages > zram->limit_pages) {
-		zcomp_stream_put(zram->comp);
+		zcomp_stream_put(zstrm);
 		zs_free(zram->mem_pool, handle);
 		return -ENOMEM;
 	}
@@ -3065,7 +3065,7 @@ compress_again:
 	if (comp_len == PAGE_SIZE)
 		kunmap_atomic(src);
 
-	zcomp_stream_put(zram->comp);
+	zcomp_stream_put(zstrm);
 	zs_unmap_object(zram->mem_pool, handle);
 	atomic64_add(comp_len, &zram->stats.compr_data_size);
 out:

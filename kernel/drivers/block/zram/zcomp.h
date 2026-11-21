@@ -10,7 +10,11 @@
 #ifndef _ZCOMP_H_
 #define _ZCOMP_H_
 
+#include <linux/mutex.h>
+
 struct zcomp_strm {
+	/* Serializes use and CPU-hotplug teardown of this stream. */
+	struct mutex lock;
 	/* compression/decompression buffer */
 	void *buffer;
 	struct crypto_comp *tfm;
@@ -19,7 +23,7 @@ struct zcomp_strm {
 
 /* dynamic per-device compression frontend */
 struct zcomp {
-	struct zcomp_strm * __percpu *stream;
+	struct zcomp_strm __percpu *stream;
 	const char *name;
 	struct hlist_node node;
 };
@@ -33,7 +37,7 @@ struct zcomp *zcomp_create(const char *comp);
 void zcomp_destroy(struct zcomp *comp);
 
 struct zcomp_strm *zcomp_stream_get(struct zcomp *comp);
-void zcomp_stream_put(struct zcomp *comp);
+void zcomp_stream_put(struct zcomp_strm *zstrm);
 
 int zcomp_compress(struct zcomp_strm *zstrm,
 		const void *src, unsigned int *dst_len);
