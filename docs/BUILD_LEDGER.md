@@ -431,3 +431,29 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   `kernel/time/alarmtimer.o`.
 - Full link, vendor CRC verification, boot, storage/SD, governor/hotplug,
   and camera/video tests remain pending for this candidate batch.
+
+## 2026-11-21 MT6768 candidate full builds
+
+- Both builds used the existing output directory and the common T227U
+  toolchain and flags. The r8 config SHA-256 was preserved
+  (`ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`).
+  Both linked and generated `Image.gz`, and both reported the existing
+  14 section mismatches and three duplicate vendor module exports.
+- Build #23 includes the previous six candidates and the fence ioctl
+  patch later committed as `c3c875221`. A host harness compared the
+  previous and new ioctl output bytes for count-only, single-fence,
+  multi-fence, and error cases. It also verified that single-fence
+  detail queries bypass allocation. Image SHA-256
+  `a45cc70f77ea0fef26fc5679c4ce6d3d955c75e87da09770b61a0a73b92e9695`.
+  Logs `/home/legit-su/t227u-20261121-candidate-full-build.log` and
+  `/home/legit-su/t227u-20261121-candidate-crc.log`.
+- Build #24 adds the swapoff lock fix `3b8275910`. The raw vendor CRC
+  differences matched released build #22, and the applied gate verified
+  all 197 mapped exports with zero remaining mismatches. Image SHA-256
+  `27edee2f3687f4cb7bcee1c3d441297d6982625fa92404d7b44c05d8bdd0ce54`.
+  Logs `/home/legit-su/t227u-20261121-swapoff-build.log` and
+  `/home/legit-su/t227u-20261121-swapoff-crc.log`.
+- The candidate image is local. Boot, radio, video, and live ZRAM
+  resize on this build remain to be tested. The tablet baseline still
+  runs #22, with F2FS `/data`, `mq-deadline` selected on `mmcblk0`,
+  and the cgroup-v1 memory controller at `/dev/memcg`.
