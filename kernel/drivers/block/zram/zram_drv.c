@@ -2526,6 +2526,15 @@ static ssize_t comp_algorithm_show(struct device *dev,
 	return sz;
 }
 
+/* Serialized by init_lock, including reset and disk initialization. */
+static void zram_clear_staged_dict(struct zram *zram)
+{
+	kvfree(zram->dict);
+	zram->dict = NULL;
+	zram->dict_size = 0;
+	zram->dict_written = 0;
+}
+
 static ssize_t comp_algorithm_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
@@ -2549,9 +2558,85 @@ static ssize_t comp_algorithm_store(struct device *dev,
 		return -EBUSY;
 	}
 
+	if (strcmp(zram->compressor, compressor))
+		zram_clear_staged_dict(zram);
 	strcpy(zram->compressor, compressor);
 	up_write(&zram->init_lock);
 	return len;
+}
+
+static ssize_t comp_dictionary_size_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zram *zram = dev_to_zram(dev);
+	unsigned int size;
+
+	down_read(&zram->init_lock);
+	size = init_done(zram) ? zram->comp->params.dict_size : zram->dict_size;
+	up_read(&zram->init_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", size);
+}
+
+static ssize_t comp_dictionary_size_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct zram *zram = dev_to_zram(dev);
+	unsigned int size;
+	void *dict = NULL;
+	ssize_t ret;
+
+	ret = kstrtouint(buf, 10, &size);
+	if (ret)
+		return ret;
+	if (size && (size < ZCOMP_DICT_MIN || size > ZCOMP_DICT_MAX))
+		return -EINVAL;
+
+	down_write(&zram->init_lock);
+	if (init_done(zram) || READ_ONCE(zram->claim)) {
+		ret = -EBUSY;
+		goto out;
+	}
+	if (size) {
+		if (!zcomp_supports_dict(zram->compressor)) {
+			ret = -EOPNOTSUPP;
+			goto out;
+		}
+		dict = kvmalloc(size, GFP_KERNEL);
+		if (!dict) {
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
+	zram_clear_staged_dict(zram);
+	zram->dict = dict;
+	zram->dict_size = size;
+	ret = len;
+out:
+	up_write(&zram->init_lock);
+	return ret;
+}
+
+static ssize_t comp_dictionary_write(struct file *file, struct kobject *kobj,
+		struct bin_attribute *attr, char *buf, loff_t pos, size_t count)
+{
+	struct zram *zram = dev_to_zram(kobj_to_dev(kobj));
+	ssize_t ret;
+
+	down_write(&zram->init_lock);
+	if (init_done(zram) || READ_ONCE(zram->claim)) {
+		ret = -EBUSY;
+	} else if (!zram->dict || pos != zram->dict_written) {
+		ret = -EINVAL;
+	} else if (count > zram->dict_size - zram->dict_written) {
+		ret = -EFBIG;
+	} else {
+		memcpy(zram->dict + pos, buf, count);
+		zram->dict_written += count;
+		ret = count;
+	}
+	up_write(&zram->init_lock);
+	return ret;
 }
 
 static ssize_t compact_store(struct device *dev,
@@ -3002,7 +3087,7 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 compress_again:
 	zstrm = zcomp_stream_get(zram->comp);
 	src = kmap_atomic(page);
-	ret = zcomp_compress(zstrm, src, &comp_len);
+	ret = zcomp_compress(zram->comp, zstrm, src, &comp_len);
 	kunmap_atomic(src);
 
 	if (unlikely(ret)) {
@@ -3365,6 +3450,7 @@ static void zram_reset_device(struct zram *zram)
 	down_write(&zram->init_lock);
 
 	zram->limit_pages = 0;
+	zram_clear_staged_dict(zram);
 
 	if (!init_done(zram)) {
 		up_write(&zram->init_lock);
@@ -3399,9 +3485,13 @@ static ssize_t disksize_store(struct device *dev,
 		return -EINVAL;
 
 	down_write(&zram->init_lock);
-	if (init_done(zram)) {
+	if (init_done(zram) || READ_ONCE(zram->claim)) {
 		pr_info("Cannot change disksize for initialized device\n");
 		err = -EBUSY;
+		goto out_unlock;
+	}
+	if (zram->dict_written != zram->dict_size) {
+		err = -ENODATA;
 		goto out_unlock;
 	}
 
@@ -3411,13 +3501,18 @@ static ssize_t disksize_store(struct device *dev,
 		goto out_unlock;
 	}
 
-	comp = zcomp_create(zram->compressor);
+	comp = zcomp_create(zram->compressor, zram->dict, zram->dict_size);
 	if (IS_ERR(comp)) {
 		pr_err("Cannot initialise %s compressing backend\n",
 				zram->compressor);
 		err = PTR_ERR(comp);
 		goto out_free_meta;
 	}
+
+	/* The compressor now owns the dictionary, including during teardown. */
+	zram->dict = NULL;
+	zram->dict_size = 0;
+	zram->dict_written = 0;
 
 	if (!strncmp(zram->compressor, "lzo-rle", 7))
 		is_lzorle = true;
@@ -3516,6 +3611,9 @@ static DEVICE_ATTR_WO(mem_used_max);
 static DEVICE_ATTR_WO(idle);
 static DEVICE_ATTR_RW(max_comp_streams);
 static DEVICE_ATTR_RW(comp_algorithm);
+static DEVICE_ATTR_RW(comp_dictionary_size);
+static BIN_ATTR(comp_dictionary, 0200, NULL, comp_dictionary_write,
+		ZCOMP_DICT_MAX);
 #ifdef CONFIG_ZRAM_WRITEBACK
 static DEVICE_ATTR_RW(backing_dev);
 static DEVICE_ATTR_WO(writeback);
@@ -3533,6 +3631,7 @@ static struct attribute *zram_disk_attrs[] = {
 	&dev_attr_idle.attr,
 	&dev_attr_max_comp_streams.attr,
 	&dev_attr_comp_algorithm.attr,
+	&dev_attr_comp_dictionary_size.attr,
 #ifdef CONFIG_ZRAM_WRITEBACK
 	&dev_attr_backing_dev.attr,
 	&dev_attr_writeback.attr,
@@ -3548,8 +3647,14 @@ static struct attribute *zram_disk_attrs[] = {
 	NULL,
 };
 
+static struct bin_attribute *zram_disk_bin_attrs[] = {
+	&bin_attr_comp_dictionary,
+	NULL,
+};
+
 static const struct attribute_group zram_disk_attr_group = {
 	.attrs = zram_disk_attrs,
+	.bin_attrs = zram_disk_bin_attrs,
 };
 
 static const struct attribute_group *zram_disk_attr_groups[] = {

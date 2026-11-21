@@ -38,6 +38,27 @@ Description:
 		available and selected compression algorithms, change
 		compression algorithm selection.
 
+What:		/sys/block/zram<id>/comp_dictionary_size
+Date:		November 2026
+Description:
+		Report the selected dictionary length in bytes. Before
+		initialization, write a length from 8 through 65536 to
+		start staging a raw LZ4 dictionary, or zero to discard it.
+		Select lz4 first. Changing the compressor or resetting the
+		device clears a staged dictionary. An initialized device
+		rejects writes with -EBUSY.
+
+What:		/sys/block/zram<id>/comp_dictionary
+Date:		November 2026
+Description:
+		Write-only binary upload for the staged dictionary. Write
+		consecutive bytes beginning at offset zero until the length
+		declared in comp_dictionary_size has been written. Use one
+		userspace uploader per device. A disksize write rejects an
+		incomplete upload with -ENODATA. On successful initialization
+		the dictionary remains immutable until the device is reset.
+		An initialized device rejects writes with -EBUSY.
+
 What:		/sys/block/zram<id>/mem_used_max
 Date:		August 2014
 Contact:	Minchan Kim <minchan@kernel.org>

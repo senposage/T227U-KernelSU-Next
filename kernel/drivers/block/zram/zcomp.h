@@ -10,15 +10,28 @@
 #ifndef _ZCOMP_H_
 #define _ZCOMP_H_
 
+#define ZCOMP_DICT_MIN 8U
+#define ZCOMP_DICT_MAX (64U * 1024)
+
+/* Immutable after the compressor is initialized. */
+struct zcomp_params {
+	void *dict;
+	unsigned int dict_size;
+	void *dict_stream;
+};
+
 /* Context setup and teardown run outside the I/O path. */
 struct zcomp_ops {
+	int (*setup_params)(struct zcomp_params *params);
+	void (*release_params)(struct zcomp_params *params);
 	void *(*create_ctx)(const char *name);
 	void (*destroy_ctx)(void *ctx);
-	int (*compress)(void *ctx, const void *src, void *dst,
-			unsigned int *dst_len);
+	int (*compress)(const struct zcomp_params *params, void *ctx,
+			const void *src, void *dst, unsigned int *dst_len);
 	int (*decompress)(void *ctx, const void *src, unsigned int src_len,
 			  void *dst);
-	int (*decompress_stateless)(const void *src, unsigned int src_len,
+	int (*decompress_stateless)(const struct zcomp_params *params,
+				    const void *src, unsigned int src_len,
 				    void *dst);
 };
 
@@ -36,6 +49,7 @@ struct zcomp {
 	struct zcomp_cpu __percpu *cpu;
 	const char *name;
 	const struct zcomp_ops *ops;
+	struct zcomp_params params;
 	struct hlist_node node;
 };
 
@@ -43,8 +57,9 @@ int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node);
 int zcomp_cpu_dead(unsigned int cpu, struct hlist_node *node);
 ssize_t zcomp_available_show(const char *comp, char *buf);
 bool zcomp_available_algorithm(const char *comp);
+bool zcomp_supports_dict(const char *comp);
 
-struct zcomp *zcomp_create(const char *comp);
+struct zcomp *zcomp_create(const char *comp, void *dict, unsigned int dict_size);
 void zcomp_destroy(struct zcomp *comp);
 
 struct zcomp_strm *zcomp_stream_get(struct zcomp *comp);
@@ -55,7 +70,7 @@ void *zcomp_read_buf_get(struct zcomp *comp);
 void zcomp_read_buf_put(struct zcomp *comp);
 #endif
 
-int zcomp_compress(struct zcomp_strm *zstrm,
+int zcomp_compress(struct zcomp *comp, struct zcomp_strm *zstrm,
 		const void *src, unsigned int *dst_len);
 
 int zcomp_decompress(struct zcomp *comp,

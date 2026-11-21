@@ -11,6 +11,7 @@
 #include <linux/string.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/cpu.h>
@@ -54,8 +55,8 @@ static void zcomp_crypto_destroy_ctx(void *ctx)
 	crypto_free_comp(ctx);
 }
 
-static int zcomp_crypto_compress(void *ctx, const void *src, void *dst,
-				 unsigned int *dst_len)
+static int zcomp_crypto_compress(const struct zcomp_params *params, void *ctx,
+				 const void *src, void *dst, unsigned int *dst_len)
 {
 	return crypto_comp_compress(ctx, src, PAGE_SIZE, dst, dst_len);
 }
@@ -127,6 +128,11 @@ bool zcomp_available_algorithm(const char *comp)
 	return crypto_has_comp(comp, 0, 0) == 1;
 }
 
+bool zcomp_supports_dict(const char *comp)
+{
+	return IS_REACHABLE(CONFIG_CRYPTO_LZ4) && !strcmp(comp, "lz4");
+}
+
 /* show available compressors */
 ssize_t zcomp_available_show(const char *comp, char *buf)
 {
@@ -179,7 +185,7 @@ void zcomp_read_buf_put(struct zcomp *comp)
 }
 #endif
 
-int zcomp_compress(struct zcomp_strm *zstrm,
+int zcomp_compress(struct zcomp *comp, struct zcomp_strm *zstrm,
 		const void *src, unsigned int *dst_len)
 {
 	/*
@@ -198,7 +204,8 @@ int zcomp_compress(struct zcomp_strm *zstrm,
 	 */
 	*dst_len = PAGE_SIZE * 2;
 
-	return zstrm->ops->compress(zstrm->ctx, src, zstrm->buffer, dst_len);
+	return zstrm->ops->compress(&comp->params, zstrm->ctx, src,
+				    zstrm->buffer, dst_len);
 }
 
 int zcomp_decompress(struct zcomp *comp,
@@ -208,7 +215,8 @@ int zcomp_decompress(struct zcomp *comp,
 	int ret;
 
 	if (comp->ops->decompress_stateless)
-		return comp->ops->decompress_stateless(src, src_len, dst);
+		return comp->ops->decompress_stateless(&comp->params, src,
+						      src_len, dst);
 
 	zstrm = zcomp_stream_get(comp);
 	ret = comp->ops->decompress(zstrm->ctx, src, src_len, dst);
@@ -278,6 +286,9 @@ void zcomp_destroy(struct zcomp *comp)
 {
 	cpuhp_state_remove_instance(CPUHP_ZCOMP_PREPARE, &comp->node);
 	free_percpu(comp->cpu);
+	if (comp->ops->release_params)
+		comp->ops->release_params(&comp->params);
+	kvfree(comp->params.dict);
 	kfree(comp);
 }
 
@@ -287,14 +298,20 @@ void zcomp_destroy(struct zcomp *comp)
  * backend pointer or ERR_PTR if things went bad. ERR_PTR(-EINVAL)
  * if requested algorithm is not supported, ERR_PTR(-ENOMEM) in
  * case of allocation error, or any other error potentially
- * returned by zcomp_init().
+ * returned by zcomp_init(). The caller owns dict on failure; the returned
+ * compressor owns it on success.
  */
-struct zcomp *zcomp_create(const char *compress)
+struct zcomp *zcomp_create(const char *compress, void *dict, unsigned int dict_size)
 {
 	struct zcomp *comp;
 	int error;
 
 	if (!zcomp_available_algorithm(compress))
+		return ERR_PTR(-EINVAL);
+	if (dict && (!zcomp_supports_dict(compress) ||
+		     dict_size < ZCOMP_DICT_MIN || dict_size > ZCOMP_DICT_MAX))
+		return ERR_PTR(-EINVAL);
+	if (!dict && dict_size)
 		return ERR_PTR(-EINVAL);
 
 	comp = kzalloc(sizeof(struct zcomp), GFP_KERNEL);
@@ -303,12 +320,25 @@ struct zcomp *zcomp_create(const char *compress)
 
 	comp->name = compress;
 	comp->ops = &backend_crypto;
-	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && !strcmp(compress, "lz4"))
+	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && zcomp_supports_dict(compress))
 		comp->ops = &backend_lz4;
-	error = zcomp_init(comp);
-	if (error) {
-		kfree(comp);
-		return ERR_PTR(error);
+
+	comp->params.dict = dict;
+	comp->params.dict_size = dict_size;
+	if (dict) {
+		error = comp->ops->setup_params(&comp->params);
+		if (error)
+			goto free_comp;
 	}
+	error = zcomp_init(comp);
+	if (error)
+		goto release_params;
 	return comp;
+
+release_params:
+	if (comp->ops->release_params)
+		comp->ops->release_params(&comp->params);
+free_comp:
+	kfree(comp);
+	return ERR_PTR(error);
 }

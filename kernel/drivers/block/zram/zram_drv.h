@@ -190,6 +190,10 @@ struct zram {
 	 */
 	u64 disksize;	/* bytes */
 	char compressor[CRYPTO_MAX_ALG_NAME];
+	/* Staging buffer, transferred to zcomp only on successful init. */
+	void *dict;
+	unsigned int dict_size;
+	unsigned int dict_written;
 	/*
 	 * zram is claimed so open request will be failed
 	 */
