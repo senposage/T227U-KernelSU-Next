@@ -470,5 +470,10 @@ add an initramfs hook and leaves manual ZRAM configuration available.
   `ca8bb57a935feb0aa005f1a64918021c1e5d6d00179ef5a80912176280f065d7`.
   Logs `/home/legit-su/t227u-20261121-pagein-build.log` and
   `/home/legit-su/t227u-20261121-pagein-crc.log`.
+- Local flashable archive `E:\T227U-25.zip`, SHA-256
+  `967a2abecb12168a90ca8263a23d5016b610de9357dcb799f69111bc8b95998e`.
+  The package contains the exact CRC-verified #25 image. The r8
+  AnyKernel installer, DTB, recovery tools, and single KernelSU Next
+  Manager APK matched byte for byte. ZIP integrity passed.
 - Boot, radio, and live ZRAM smoke tests remain pending. No dedicated
   page-in A/B was run.
