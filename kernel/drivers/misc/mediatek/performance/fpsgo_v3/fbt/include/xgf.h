@@ -101,6 +101,11 @@ struct xgf_ema2_predictor {
 	int err_code;
 };
 
+struct xgf_runtime_sample {
+	u64 task_start_time;
+	u64 runtime;
+};
+
 struct xgf_render {
 	struct hlist_node hlist;
 	pid_t parent;
@@ -263,9 +268,10 @@ void fpsgo_ctrl2xgf_switch_xgf(int val);
 void fpsgo_ctrl2xgf_nn_job_begin(unsigned int tid, unsigned long long mid);
 int fpsgo_ctrl2xgf_nn_job_end(unsigned int tid, unsigned long long mid);
 
+struct xgf_runtime_sample xgf_sample_runtime(pid_t pid);
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts);
+	unsigned long long ts, const struct xgf_runtime_sample *sample);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);

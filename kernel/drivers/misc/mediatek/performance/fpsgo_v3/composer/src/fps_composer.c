@@ -265,7 +265,7 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_START, NULL, NULL,
-					enqueue_start_time);
+					enqueue_start_time, NULL);
 		break;
 	case BY_PASS_TYPE:
 		f_render->t_enqueue_start = enqueue_start_time;
@@ -282,7 +282,7 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 
 void fpsgo_ctrl2comp_enqueue_end(int pid,
 	unsigned long long enqueue_end_time,
-	unsigned long long identifier)
+	unsigned long long identifier, const struct xgf_runtime_sample *sample)
 {
 	struct render_info *f_render;
 	int xgf_ret = 0;
@@ -328,6 +328,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
+		if (enqueue_end_time <= f_render->t_enqueue_end)
+			break;
 		if (f_render->t_enqueue_end)
 			f_render->Q2Q_time =
 				enqueue_end_time - f_render->t_enqueue_end;
@@ -342,9 +344,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_END, &running_time, &mid,
-					enqueue_end_time);
-		if (running_time != 0)
-			f_render->running_time = running_time;
+					enqueue_end_time, sample);
+		f_render->running_time = running_time;
 		f_render->mid = mid;
 
 		fpsgo_comp2fbt_frame_start(f_render,
@@ -441,7 +442,7 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_DEQUEUE_START, NULL, NULL,
-					dequeue_start_time);
+					dequeue_start_time, NULL);
 		break;
 	case BY_PASS_TYPE:
 		break;
@@ -519,7 +520,8 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 			dequeue_end_time, f_render->dequeue_length);
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
-				XGF_DEQUEUE_END, NULL, NULL, dequeue_end_time);
+				XGF_DEQUEUE_END, NULL, NULL,
+				dequeue_end_time, NULL);
 		fpsgo_comp2fbt_deq_end(f_render, dequeue_end_time);
 		fpsgo_systrace_c_fbt_gm(-300, 0, f_render->dequeue_length,
 			"%d_%d-dequeue_length", pid, f_render->frame_type);

@@ -112,23 +112,48 @@ because these affect low-memory workloads and KA's explicit resize path.
   The T225/T225N/T227 source overlay contains DTS and config files. The
   device-side module scan found `xgf_ko_init` only as an import in
   `/vendor/lib/modules/fpsgo.ko`.
-- Extracted `boot.img.lz4` from the local Canadian
-  `T227UVLSCFYE2` AP archive and checked its embedded configuration.
-  It has FPSGO v3 disabled and has none of the eight XGF provider
-  names in its kernel image. The matching Verizon `T227USQSCEYE2`
-  AP was listed publicly but its boot image was unavailable locally.
-  Samsung's source search returned HTTP 403 from this host.
+- The supplied Verizon `T227USQSCEYE2` boot image reports
+  `4.19.191-28847731-abT227USQSCEYE2`. Its embedded config disables FPSGO
+  v3. The kernel export table has none of the vendor FPSGO module's 16
+  XGF imports, and the boot ramdisk contains no kernel modules. The
+  vendor module has matching vermagic and is listed in `modules.load`.
+  The Canadian `T227UVLSCFYE2` boot image also disables FPSGO v3.
 - The [MediaTek Labs 4.19 XGF source](https://github.com/MediaTek-Labs/common-kernel-4.19/blob/e440f21fa5dca203a027f31c2ed30af50e6b05c7/drivers/misc/mediatek/performance/fpsgo_v3/fbt/src/xgf.c)
   calls an externally supplied runtime callback. The inspected Oppo,
   Xiaomi, Teracube, and OnePlus trees also yielded callback glue and
   declarations for the missing functions.
-- A native replacement can start at `XGF_QUEUE_END` in the existing
-  FPSGO path. Estimate render-thread CPU time from scheduler accounting
-  over successive frames, reuse the existing `xgf_ema_cal()` smoothing,
-  and pass the result into the existing FBT policy. Validate timestamps,
-  task lifetime, missed frames, and cleanup before adding dependency
-  accounting or a target-FPS policy. Vendor-module compatibility and
-  EMA2 parity are separate from that first working estimator.
+- Build #26 adds native render-thread runtime accounting to the
+  MT6765 FPSGO variant. Queue-end captures a scheduler sample before
+  dispatching work. XGF keeps a baseline per render thread and buffer,
+  rejects stale samples and PID reuse, and bounds CPU time by the frame
+  interval. The existing EMA, FBT, FSTB target-FPS policy, and render
+  thread clamp handle the result. The code retains the layout of the
+  module-facing XGF render structure. Vendor EMA2 and worker dependency
+  prediction are outside this implementation. See the build ledger for
+  verification and the tablet test.
+
+## T227U vendor module ABI audit
+
+All ten archived modules matched the SHA-256 of their device copies.
+The audit compared strong undefined symbols and `__versions` imports
+against the patched build #26 kernel exports and the archived module
+exports. On the running #25 tablet, `/proc/modules` listed Wi-Fi,
+Bluetooth, and the three connectivity providers. The current kernel
+ring had no matching early loader messages, so the table reports
+binary compatibility and load state separately.
+
+| Vendor module | Result |
+| --- | --- |
+| `fpsgo` | Eight missing XGF imports. The native frame path in #26 runs inside the kernel independently of the vendor glue module. |
+| `fmradio_drv_mt6631` | Five CRC mismatches: `platform_device_unregister`, `platform_device_put`, `platform_device_alloc`, `platform_device_add`, `gpiod_set_raw_value`. |
+| `gps_drv` | One CRC mismatch: `nonseekable_open`. |
+| `trace_mmstat` | Four CRC mismatches: `seq_putc`, `init_task`, `contig_page_data`, `bpf_trace_run3`. |
+| `met` | Three required imports resolve with matching CRCs. It was absent from `/proc/modules`, so its load status needs independent evidence. |
+| `bt_drv_connac1x`, `connfem`, `wlan_drv_gen4m`, `wmt_chrdev_wifi`, `wmt_drv` | Loaded on #25. Their required imports resolve in the #26 kernel or a vendor dependency and the built-in CRCs match. |
+
+The 197-symbol release gate covers the existing mapped ABI. The ten
+additional CRC mismatches require checking the affected function and
+structure ABIs before adding any overrides.
 
 ## Release rule
 

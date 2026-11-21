@@ -52,6 +52,7 @@ struct FPSGO_NOTIFIER_PUSH_TAG {
 
 	int qudeq_cmd;
 	unsigned int queue_arg;
+	struct xgf_runtime_sample runtime_sample;
 
 	unsigned long long bufID;
 	int connectedAPI;
@@ -150,7 +151,8 @@ static void fpsgo_notifier_wq_cb_gblock(int tid, int start)
 
 static void fpsgo_notifier_wq_cb_qudeq(int qudeq,
 		unsigned int startend, int cur_pid,
-		unsigned long long curr_ts, unsigned long long id)
+		unsigned long long curr_ts, unsigned long long id,
+		const struct xgf_runtime_sample *sample)
 {
 	FPSGO_LOGI("[FPSGO_CB] qudeq: %d-%d, pid %d, ts %llu, id %llu\n",
 		qudeq, startend, cur_pid, curr_ts, id);
@@ -169,7 +171,7 @@ static void fpsgo_notifier_wq_cb_qudeq(int qudeq,
 			FPSGO_LOGI("[FPSGO_CB] QUEUE End: pid %d\n",
 					cur_pid);
 			fpsgo_ctrl2comp_enqueue_end(cur_pid, curr_ts,
-					id);
+					id, sample);
 		}
 		break;
 	case 0:
@@ -243,7 +245,8 @@ static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 	case FPSGO_NOTIFIER_QUEUE_DEQUEUE:
 		fpsgo_notifier_wq_cb_qudeq(vpPush->qudeq_cmd,
 				vpPush->queue_arg, vpPush->pid,
-				vpPush->cur_ts, vpPush->identifier);
+				vpPush->cur_ts, vpPush->identifier,
+				&vpPush->runtime_sample);
 		break;
 	case FPSGO_NOTIFIER_CONNECT:
 		fpsgo_notifier_wq_cb_connect(vpPush->pid,
@@ -298,6 +301,9 @@ void fpsgo_notify_qudeq(int qudeq,
 		return;
 	}
 
+	/* Sample at notification time before workqueue latency can skew it. */
+	if (qudeq == 1 && !startend)
+		vpPush->runtime_sample = xgf_sample_runtime(pid);
 	cur_ts = fpsgo_get_time();
 
 	vpPush->ePushType = FPSGO_NOTIFIER_QUEUE_DEQUEUE;

@@ -12,6 +12,7 @@
 #include <linux/trace_events.h>
 #include <linux/module.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/cputime.h>
 #include <linux/cpumask.h>
 
 #include <mt-plat/fpsgo_common.h>
@@ -25,6 +26,13 @@
 #include "xgf.h"
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
+
+#define XGF_RUNTIME_IDLE_NS NSEC_PER_SEC
+
+struct xgf_render_runtime {
+	struct xgf_render render;
+	struct xgf_runtime_sample previous;
+};
 
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
@@ -820,6 +828,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 	struct xgf_render **ret, int force)
 {
 	struct xgf_render *iter;
+	struct xgf_render_runtime *state;
 
 	xgf_lockprove(__func__);
 
@@ -838,10 +847,10 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 	if (!force)
 		return -EINVAL;
 
-	iter = xgf_alloc(sizeof(*iter));
-
-	if (!iter)
+	state = xgf_alloc(sizeof(*state));
+	if (!state)
 		return -ENOMEM;
+	iter = &state->render;
 
 	{
 		struct task_struct *tsk;
@@ -853,7 +862,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		rcu_read_unlock();
 
 		if (!tsk) {
-			xgf_free(iter);
+			xgf_free(state);
 			return -EINVAL;
 		}
 
@@ -1289,22 +1298,26 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 	return index;
 }
 
+static void xgf_free_render(struct xgf_render *render)
+{
+	xgf_clean_deps_list(render, INNER_DEPS);
+	xgf_clean_deps_list(render, OUTER_DEPS);
+	xgf_clean_deps_list(render, PREVI_DEPS);
+	xgf_reset_render_sector(render);
+	xgf_reset_render_hw_list(render);
+	hlist_del(&render->hlist);
+	xgf_free(container_of(render, struct xgf_render_runtime, render));
+}
+
 void xgf_reset_renders(void)
 {
-	struct xgf_render *r_iter;
-	struct hlist_node *r_tmp;
+	struct xgf_render *render;
+	struct hlist_node *next;
 
 	xgf_lockprove(__func__);
 
-	hlist_for_each_entry_safe(r_iter, r_tmp, &xgf_renders, hlist) {
-		xgf_clean_deps_list(r_iter, INNER_DEPS);
-		xgf_clean_deps_list(r_iter, OUTER_DEPS);
-		xgf_clean_deps_list(r_iter, PREVI_DEPS);
-		xgf_reset_render_sector(r_iter);
-		xgf_reset_render_hw_list(r_iter);
-		hlist_del(&r_iter->hlist);
-		xgf_free(r_iter);
-	}
+	hlist_for_each_entry_safe(render, next, &xgf_renders, hlist)
+		xgf_free_render(render);
 
 	xgf_clean_hw_events();
 }
@@ -1372,13 +1385,11 @@ void fpsgo_ctrl2xgf_switch_xgf(int val)
 void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 {
 	unsigned long long now_ts = xgf_get_time();
-	long long diff, check_period, recycle_period;
+	long long diff, check_period;
 	struct xgf_hw_event *hw_iter;
 	struct hlist_node *hw_t;
 
-	/* over 1 seconds since last check2recycle */
 	check_period = NSEC_PER_SEC;
-	recycle_period = NSEC_PER_SEC >> 1;
 	diff = (long long)now_ts - (long long)last_check2recycle_ts;
 
 	xgf_trace("xgf_do_recycle now:%llu last_check:%llu fstb_act:%d",
@@ -1402,6 +1413,17 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 
 	if (diff < 0LL || diff < check_period)
 		goto done;
+
+	if (!READ_ONCE(xgf_est_runtime_fp)) {
+		struct xgf_render *render;
+		struct hlist_node *next;
+
+		hlist_for_each_entry_safe(render, next, &xgf_renders, hlist) {
+			if (now_ts > render->queue.end_ts &&
+			    now_ts - render->queue.end_ts > XGF_RUNTIME_IDLE_NS)
+				xgf_free_render(render);
+		}
+	}
 
 	hlist_for_each_entry_safe(hw_iter, hw_t, &xgf_hw_events, hlist) {
 		diff = (long long)now_ts - (long long)hw_iter->head_ts;
@@ -1520,19 +1542,50 @@ error:
 	return;
 }
 
-static int xgf_enter_est_runtime(int rpid, struct xgf_render *render,
-	unsigned long long *runtime, unsigned long long ts)
+struct xgf_runtime_sample xgf_sample_runtime(pid_t pid)
 {
-	int ret;
+	struct xgf_runtime_sample sample = { };
+	struct task_struct *task;
 
-	WARN_ON(!xgf_est_runtime_fp);
+	if (pid <= 0)
+		return sample;
 
-	if (xgf_est_runtime_fp)
-		ret = xgf_est_runtime_fp(rpid, render, runtime, ts);
-	else
-		ret = -ENOENT;
+	rcu_read_lock();
+	task = find_task_by_vpid(pid);
+	if (task) {
+		sample.task_start_time = task->start_time;
+		sample.runtime = task_sched_runtime(task);
+	}
+	rcu_read_unlock();
 
-	return ret;
+	return sample;
+}
+
+static int xgf_enter_est_runtime(struct xgf_render *render,
+	unsigned long long *runtime, u64 ts, u64 prev_ts,
+	const struct xgf_runtime_sample *sample)
+{
+	typeof(xgf_est_runtime_fp) estimate = READ_ONCE(xgf_est_runtime_fp);
+	struct xgf_render_runtime *state =
+		container_of(render, struct xgf_render_runtime, render);
+	struct xgf_runtime_sample prev = state->previous;
+	u64 elapsed = ts - prev_ts;
+
+	if (estimate)
+		return estimate(render->render, render, runtime, ts);
+
+	state->previous = *sample;
+	if (!sample->task_start_time ||
+	    sample->task_start_time != prev.task_start_time ||
+	    elapsed > XGF_RUNTIME_IDLE_NS || sample->runtime < prev.runtime) {
+		render->ema_runtime = 0;
+		return -EAGAIN;
+	}
+
+	/* FBT needs at least the render thread for a per-task clamp. */
+	xgf_get_dep(render->render, render, OUTER_DEPS, 1);
+	*runtime = min(sample->runtime - prev.runtime, elapsed);
+	return XGF_NOTIFY_OK;
 }
 
 static int xgf_get_spid(struct xgf_render *render)
@@ -1608,13 +1661,14 @@ out:
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts)
+	unsigned long long ts, const struct xgf_runtime_sample *sample)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;
 	struct xgf_hw_rec *hr_iter;
 	struct hlist_node *hr;
 	unsigned long long raw_runtime = 0;
+	u64 prev_queue_end;
 	int new_spid;
 	unsigned long long t_dequeue_time = 0;
 	int do_extra_sub = 0;
@@ -1646,6 +1700,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
+		prev_queue_end = r->queue.end_ts;
 		r->queue.end_ts = ts;
 		cur_xgf_extra_sub = xgf_extra_sub;
 
@@ -1665,19 +1720,15 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			xgf_trace("xgf extra_sub:%d => %llu", rpid, t_dequeue_time);
 		}
 
-		ret = xgf_enter_est_runtime(rpid, r, &raw_runtime, ts);
+		ret = xgf_enter_est_runtime(r, &raw_runtime, ts,
+			prev_queue_end, sample);
 
 		if (do_extra_sub)
 			cur_xgf_extra_sub = 0;
 
-		if (!raw_runtime)
-			*run_time = raw_runtime;
-		else {
-			r->ema_runtime =
-				xgf_ema_cal(raw_runtime, r->ema_runtime);
-
-			*run_time = r->ema_runtime;
-		}
+		if (!ret || raw_runtime)
+			r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
+		*run_time = (!ret || raw_runtime) ? r->ema_runtime : 0;
 
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
 

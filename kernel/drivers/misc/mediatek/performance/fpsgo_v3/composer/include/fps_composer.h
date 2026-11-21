@@ -7,6 +7,8 @@
 
 #include <linux/rbtree.h>
 
+struct xgf_runtime_sample;
+
 enum FPSGO_COM_ERROR {
 	FPSGO_COM_IS_RENDER,
 	FPSGO_COM_TASK_NOT_EXIST,
@@ -34,7 +36,8 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 			unsigned long long identifier);
 void fpsgo_ctrl2comp_enqueue_end(int pid,
 			unsigned long long enqueue_end_time,
-			unsigned long long identifier);
+			unsigned long long identifier,
+			const struct xgf_runtime_sample *sample);
 void fpsgo_ctrl2comp_enqueue_start(int pid,
 			unsigned long long enqueue_start_time,
 			unsigned long long identifier);
