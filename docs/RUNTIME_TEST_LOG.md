@@ -257,3 +257,38 @@ it was tested here.
   matching ABI and lifecycle.
 - The ten archived T227U vendor modules were checked for a definition of
   `xgf_ko_init`. None supplied it.
+
+## 2026-11-21 build #30 ComboA command-history A/B
+
+- ADB confirmed booted build #30 from `T227U-IO.zip`. FreeKiosk
+  (`com.freekiosk`) and tinyCam Pro (`com.alexvas.dvr.pro`) were
+  force-stopped before testing and remained stopped through the run.
+  Kyber was active on `mmcblk0`, and CPUs 0, 5, and 6 remained
+  online in the before and after snapshots.
+- The harness created and synced a 192 MiB scratch file on F2FS.
+  It validated the file's allocated extents with FIEMAP and used
+  direct reads of those extents from the userdata block device.
+  Each trial used the same 4,096 random 4 KiB reads and 1,024
+  sequential 128 KiB reads at queue depth one. Test data was removed.
+- One warm-up was followed by eight trials, with history
+  on/off/off/on/off/on/on/off. The earlier zero-delta readings were
+  traced to disabled block I/O accounting. Both modes then ran with
+  accounting enabled, and each completed trial advanced
+  `mmcblk0` by 294,912–294,960 read sectors.
+
+| Direct reads | History on, MiB/s | History off, MiB/s | On p95 / p99, µs | Off p95 / p99, µs |
+| --- | ---: | ---: | ---: | ---: |
+| Random 4 KiB | 25.26 | 25.07 | 189 / 213 | 196 / 221 |
+| Sequential 128 KiB | 203.59 | 204.60 | 724 / 759 | 717 / 756 |
+
+- Entries are medians of four trial summaries per mode. Sequential
+  throughput was 0.5% higher with logging off. Paired throughput
+  and tail-latency differences changed direction across trials.
+  This run showed no consistent read performance gain from disabling
+  command history.
+- All reads completed. The kernel log showed no new MMC or F2FS
+  messages during the measured run. The eMMC reported life-time
+  estimates `0x01 0x01` and pre-EOL status `0x01` before and after.
+  Restored command history to on and block I/O accounting to off.
+  The scripts, trial data, and health snapshots are archived locally at
+  `/home/legit-su/t227u-io-ab-20261121.0RMvoZ`.
