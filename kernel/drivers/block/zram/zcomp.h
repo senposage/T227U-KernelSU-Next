@@ -10,11 +10,21 @@
 #ifndef _ZCOMP_H_
 #define _ZCOMP_H_
 
+/* Context setup and teardown run outside the I/O path. */
+struct zcomp_ops {
+	void *(*create_ctx)(const char *name);
+	void (*destroy_ctx)(void *ctx);
+	int (*compress)(void *ctx, const void *src, void *dst,
+			unsigned int *dst_len);
+	int (*decompress)(void *ctx, const void *src, unsigned int src_len,
+			  void *dst);
+};
+
 struct zcomp_strm {
 	/* compression/decompression buffer */
 	void *buffer;
-	struct crypto_comp *tfm;
-	void *lz4_workspace;
+	const struct zcomp_ops *ops;
+	void *ctx;
 	void *tmpbuf;
 };
 
@@ -22,6 +32,7 @@ struct zcomp_strm {
 struct zcomp {
 	struct zcomp_strm * __percpu *stream;
 	const char *name;
+	const struct zcomp_ops *ops;
 	struct hlist_node node;
 };
 

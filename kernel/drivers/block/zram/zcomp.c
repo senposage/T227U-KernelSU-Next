@@ -36,12 +36,41 @@ static const char * const backends[] = {
 	NULL
 };
 
+static void *zcomp_crypto_create_ctx(const char *name)
+{
+	return crypto_alloc_comp(name, 0, 0);
+}
+
+static void zcomp_crypto_destroy_ctx(void *ctx)
+{
+	crypto_free_comp(ctx);
+}
+
+static int zcomp_crypto_compress(void *ctx, const void *src, void *dst,
+				 unsigned int *dst_len)
+{
+	return crypto_comp_compress(ctx, src, PAGE_SIZE, dst, dst_len);
+}
+
+static int zcomp_crypto_decompress(void *ctx, const void *src,
+				   unsigned int src_len, void *dst)
+{
+	unsigned int dst_len = PAGE_SIZE;
+
+	return crypto_comp_decompress(ctx, src, src_len, dst, &dst_len);
+}
+
+static const struct zcomp_ops backend_crypto = {
+	.create_ctx = zcomp_crypto_create_ctx,
+	.destroy_ctx = zcomp_crypto_destroy_ctx,
+	.compress = zcomp_crypto_compress,
+	.decompress = zcomp_crypto_decompress,
+};
+
 static void zcomp_strm_free(struct zcomp_strm *zstrm)
 {
-	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && zstrm->lz4_workspace)
-		zram_lz4_free_workspace(zstrm->lz4_workspace);
-	if (!IS_ERR_OR_NULL(zstrm->tfm))
-		crypto_free_comp(zstrm->tfm);
+	if (!IS_ERR_OR_NULL(zstrm->ctx))
+		zstrm->ops->destroy_ctx(zstrm->ctx);
 	free_pages((unsigned long)zstrm->buffer, 1);
 	if (zstrm->tmpbuf) {
 		free_pages((unsigned long)zstrm->tmpbuf, 1);
@@ -50,34 +79,31 @@ static void zcomp_strm_free(struct zcomp_strm *zstrm)
 	kfree(zstrm);
 }
 
-/*
- * allocate new zcomp_strm structure with ->tfm initialized by
- * backend, return NULL on error
- */
+/* Allocate a stream and its backend context, or return NULL on failure. */
 static struct zcomp_strm *zcomp_strm_alloc(struct zcomp *comp)
 {
-	struct zcomp_strm *zstrm = kmalloc(sizeof(*zstrm), GFP_KERNEL);
+	struct zcomp_strm *zstrm = kzalloc(sizeof(*zstrm), GFP_KERNEL);
 	if (!zstrm)
 		return NULL;
 
-	zstrm->lz4_workspace = NULL;
-	zstrm->tfm = NULL;
-	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && !strcmp(comp->name, "lz4"))
-		zstrm->lz4_workspace = zram_lz4_alloc_workspace();
-	else
-		zstrm->tfm = crypto_alloc_comp(comp->name, 0, 0);
+	zstrm->ops = comp->ops;
+	zstrm->ctx = comp->ops->create_ctx(comp->name);
+	if (IS_ERR_OR_NULL(zstrm->ctx))
+		goto fail;
 	/*
 	 * allocate 2 pages. 1 for compressed data, plus 1 extra for the
 	 * case when compressed size is larger than the original one
 	 */
 	zstrm->buffer = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
 	zstrm->tmpbuf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
-	if ((!zstrm->lz4_workspace && IS_ERR_OR_NULL(zstrm->tfm)) ||
-	    !zstrm->buffer || !zstrm->tmpbuf) {
-		zcomp_strm_free(zstrm);
-		zstrm = NULL;
-	}
+	if (!zstrm->buffer || !zstrm->tmpbuf)
+		goto fail;
+
 	return zstrm;
+
+fail:
+	zcomp_strm_free(zstrm);
+	return NULL;
 }
 
 bool zcomp_available_algorithm(const char *comp)
@@ -157,26 +183,13 @@ int zcomp_compress(struct zcomp_strm *zstrm,
 	 */
 	*dst_len = PAGE_SIZE * 2;
 
-	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && zstrm->lz4_workspace)
-		return zram_lz4_compress(src, zstrm->buffer, dst_len,
-					 zstrm->lz4_workspace);
-
-	return crypto_comp_compress(zstrm->tfm,
-			src, PAGE_SIZE,
-			zstrm->buffer, dst_len);
+	return zstrm->ops->compress(zstrm->ctx, src, zstrm->buffer, dst_len);
 }
 
 int zcomp_decompress(struct zcomp_strm *zstrm,
 		const void *src, unsigned int src_len, void *dst)
 {
-	unsigned int dst_len = PAGE_SIZE;
-
-	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && zstrm->lz4_workspace)
-		return zram_lz4_decompress(src, src_len, dst);
-
-	return crypto_comp_decompress(zstrm->tfm,
-			src, src_len,
-			dst, &dst_len);
+	return zstrm->ops->decompress(zstrm->ctx, src, src_len, dst);
 }
 
 int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node)
@@ -254,6 +267,9 @@ struct zcomp *zcomp_create(const char *compress)
 		return ERR_PTR(-ENOMEM);
 
 	comp->name = compress;
+	comp->ops = &backend_crypto;
+	if (IS_REACHABLE(CONFIG_CRYPTO_LZ4) && !strcmp(compress, "lz4"))
+		comp->ops = &backend_lz4;
 	error = zcomp_init(comp);
 	if (error) {
 		kfree(comp);
