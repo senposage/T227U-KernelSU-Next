@@ -221,6 +221,27 @@ The three ports above linked in build #29 with the established r8
 configuration and passed the applied vendor CRC gate. See the build
 ledger for the build inputs and the remaining device checks.
 
+## 2026-11-21 eMMC and reclaim test build
+
+| Donor | T227U disposition |
+| --- | --- |
+| `1432d23e185c` | Ported as `65f7736ae`. The tablet was running Kyber with five of eight possible CPUs offline. Drain block statistics over the same possible-CPU set over which the callbacks allocate and initialize their buckets. This keeps samples from offlined CPUs from appearing in a later latency window. |
+| `627dbd913d82` | Ported as `bd68797df`. Report Tasks RCU quiescent states at the existing reclaim-loop reschedule point. The T227U builds with both full preemption and Tasks RCU. |
+| `c6ff70f2b100` | Adapted for the active ComboA driver as `a26c71901`. Boot with command history enabled. Root can use `/sys/module/msdc/parameters/cmd_history` to disable timestamps and ring updates while retaining register/error dumps and existing history. CMD13 deduplication checks the capture generation and the immediately preceding slot, so a switch cannot rewind an older command. |
+
+For the A/B test, keep Kyber, the ZRAM profile, and the workload
+fixed. Compare p95 and p99 block I/O latency after changing only the
+command-history parameter. See the build ledger for host verification.
+
+The reclaim fix reports quiescent states. Modern Lazy RCU batches
+callback invocation on offloaded CPUs and requires a separate port.
+The [Android common Lazy RCU configuration](https://android.googlesource.com/kernel/common/+/923e4621a67ebed03842b52b1b9309afef0daea3/kernel/rcu/Kconfig)
+requires `RCU_NOCB_CPU`; the T227U config leaves it disabled and the
+4.19 source uses the older NOCB queue. A port needs to map the bypass
+queue, explicit hurry paths, and memory-pressure flushing, then
+validate idle power and callback delay under reclaim. Build #30
+keeps the established RCU configuration.
+
 ## Release rule
 
 No audit-branch change may be released until it has a full T227U build, the

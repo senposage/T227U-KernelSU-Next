@@ -779,3 +779,33 @@ FM reception is outside the supported feature list for this device.
 - CRC-patched `Image.gz` SHA-256
   `1fe53ef121ad8e66f0730ae66aaa2bbfe0013488a21904eefec5e69662de2025`.
   Build verification is host-only. The tablet remains on #28.
+
+## 2026-11-21 eMMC and reclaim test build #30
+
+- Build ID `B-20261121-IO-30`, branch
+  `codex/t227u-kernel-bringup`. Built from `10fa0ca30` with changes
+  committed verbatim as `65f7736ae` (`kernel/block/blk-stat.c`),
+  `bd68797df` (`kernel/mm/vmscan.c`), and `a26c71901`
+  (`kernel/drivers/mmc/host/mediatek/ComboA/dbg.c`).
+  Release `4.19.191-28847731-abT227USQSCEYE2`, build #30.
+- Reused the #26 command, Clang 11.0.1, and
+  `/home/legit-su/t227u-public-repro-build`. The before and after
+  config SHA-256 matched
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+- Checkpatch passed. An extracted host harness covered the logging
+  default, write validation, disable before the timestamp and ring
+  writes, enable during a command, ring wrap, and an interleaved
+  completion. The link contains the `msdc.cmd_history` parameter.
+- Full link passed with the existing 14 section mismatches and
+  three duplicate vendor exports. The applied gate verified all 203
+  vendor CRCs, patched 28 mismatches, and verified zero remaining.
+  Logs `/home/legit-su/t227u-20261121-io-build.log` and
+  `/home/legit-su/t227u-20261121-io-crc.log`.
+- CRC-patched `Image.gz` SHA-256
+  `19097118fe0080b3a253ffc3eb7ffcc0c94e5c55818511369df7ebd3189df8a5`.
+  Local test ZIP `E:\\T227U-IO.zip` SHA-256
+  `265a72e7cbd10db27375fb7e97048cf64b09a7e467f6cf16a9abdd70d1c86f73`.
+  ZIP integrity and embedded-image identity passed. All other entries,
+  including the installer, DTB, recovery tools, and single KernelSU
+  Manager 33457 APK, match the booted #28 ZIP byte for byte. Device
+  boot, radio, and latency testing for #30 remain pending.
