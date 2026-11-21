@@ -528,7 +528,7 @@ void fpsgo_check_thread_status(void)
 
 		fpsgo_thread_lock(&iter->thr_mlock);
 
-		if (iter->t_enqueue_start < expire_ts) {
+		if (max(iter->t_enqueue_start, iter->t_enqueue_end) < expire_ts) {
 			if (iter->pid == temp_max_pid &&
 				iter->buffer_id == temp_max_bufid)
 				check_max_blc = 1;

@@ -631,19 +631,21 @@ static int __cmp1(const void *a, const void *b)
 
 static void fbt_query_dep_list_loading(struct render_info *thr)
 {
+	u64 frame_ts;
+
 	if (!thr)
 		return;
 
 	if (!thr->dep_valid_size || !thr->dep_arr)
 		return;
 
-	if (thr->t_enqueue_start <= thr->dep_loading_ts
-		|| (thr->dep_loading_ts
-		&& thr->t_enqueue_start - thr->dep_loading_ts <
-		(unsigned long long)sampling_period_MS * TIME_MS_TO_NS))
+	frame_ts = thr->t_enqueue_start ?: thr->t_enqueue_end;
+	if (frame_ts <= thr->dep_loading_ts ||
+	    (thr->dep_loading_ts && frame_ts - thr->dep_loading_ts <
+	     (u64)sampling_period_MS * TIME_MS_TO_NS))
 		return;
 
-	thr->dep_loading_ts = thr->t_enqueue_start;
+	thr->dep_loading_ts = frame_ts;
 	fpsgo_fbt2minitop_query(thr->dep_valid_size, thr->dep_arr);
 	fpsgo_fbt2minitop_start(thr->dep_valid_size, thr->dep_arr);
 }
@@ -1751,7 +1753,8 @@ static int fbt_boost_policy(
 
 	fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "perf idx");
 
-	if (blc_wt) {
+	/* GED supplies a completion timestamp without enqueue timing. */
+	if (blc_wt && thread_info->t_enqueue_start) {
 		unsigned long long targettime_by_fps;
 		int temp_target_fps = min_t(int, target_fps,
 						TARGET_UNLIMITED_FPS);

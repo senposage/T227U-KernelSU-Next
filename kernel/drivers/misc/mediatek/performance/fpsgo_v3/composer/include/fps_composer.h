@@ -38,6 +38,8 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			unsigned long long enqueue_end_time,
 			unsigned long long identifier,
 			const struct xgf_runtime_sample *sample);
+void fpsgo_ctrl2comp_ged_frame(int pid, u64 ts, u64 window_id,
+			const struct xgf_runtime_sample *sample);
 void fpsgo_ctrl2comp_enqueue_start(int pid,
 			unsigned long long enqueue_start_time,
 			unsigned long long identifier);

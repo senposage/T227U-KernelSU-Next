@@ -280,15 +280,50 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 	fpsgo_thread_unlock(&f_render->thr_mlock);
 }
 
+static void fpsgo_com_queue_end(struct render_info *render, u64 ts,
+	const struct xgf_runtime_sample *sample)
+{
+	unsigned long long running_time = 0;
+	unsigned long long mid = 0;
+	int pid = render->pid;
+
+	if (ts <= render->t_enqueue_end)
+		return;
+	if (render->t_enqueue_end)
+		render->Q2Q_time = ts - render->t_enqueue_end;
+	render->t_enqueue_end = ts;
+
+	if (render->t_enqueue_start) {
+		render->enqueue_length = ts - render->t_enqueue_start;
+		FPSGO_COM_TRACE("pid[%d] type[%d] enqueue_e:%llu enqueue_l:%llu",
+			pid, render->frame_type, ts, render->enqueue_length);
+	}
+
+	fpsgo_comp2xgf_qudeq_notify(pid, render->buffer_id, XGF_QUEUE_END,
+		&running_time, &mid, ts, sample);
+	render->running_time = running_time;
+	render->mid = mid;
+
+	fpsgo_comp2fbt_frame_start(render, ts);
+	fpsgo_comp2fstb_queue_time_update(pid, render->buffer_id,
+		render->frame_type, ts, render->api);
+
+	if (render->t_enqueue_start) {
+		fpsgo_comp2fstb_enq_end(pid, render->buffer_id,
+			render->enqueue_length);
+		fpsgo_systrace_c_fbt_gm(-300, 0, render->enqueue_length,
+			"%d_%d-enqueue_length", pid, render->frame_type);
+	}
+
+	fpsgo_comp2minitop_queue_update(ts);
+}
+
 void fpsgo_ctrl2comp_enqueue_end(int pid,
 	unsigned long long enqueue_end_time,
 	unsigned long long identifier, const struct xgf_runtime_sample *sample)
 {
 	struct render_info *f_render;
-	int xgf_ret = 0;
 	int check_render;
-	unsigned long long running_time = 0;
-	unsigned long long mid = 0;
 	int ret;
 
 	FPSGO_COM_TRACE("%s pid[%d] id %llu", __func__, pid, identifier);
@@ -328,40 +363,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 
 	switch (f_render->frame_type) {
 	case NON_VSYNC_ALIGNED_TYPE:
-		if (enqueue_end_time <= f_render->t_enqueue_end)
-			break;
-		if (f_render->t_enqueue_end)
-			f_render->Q2Q_time =
-				enqueue_end_time - f_render->t_enqueue_end;
-		f_render->t_enqueue_end = enqueue_end_time;
-		f_render->enqueue_length =
-			enqueue_end_time - f_render->t_enqueue_start;
-		FPSGO_COM_TRACE(
-			"pid[%d] type[%d] enqueue_e:%llu enqueue_l:%llu",
-			pid, f_render->frame_type,
-			enqueue_end_time, f_render->enqueue_length);
-
-		xgf_ret =
-			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
-					XGF_QUEUE_END, &running_time, &mid,
-					enqueue_end_time, sample);
-		f_render->running_time = running_time;
-		f_render->mid = mid;
-
-		fpsgo_comp2fbt_frame_start(f_render,
-				enqueue_end_time);
-
-		fpsgo_comp2fstb_queue_time_update(pid,
-			f_render->buffer_id,
-			f_render->frame_type,
-			enqueue_end_time,
-			f_render->api);
-		fpsgo_comp2fstb_enq_end(f_render->pid,
-			f_render->buffer_id,
-			f_render->enqueue_length);
-		fpsgo_comp2minitop_queue_update(enqueue_end_time);
-		fpsgo_systrace_c_fbt_gm(-300, 0, f_render->enqueue_length,
-			"%d_%d-enqueue_length", pid, f_render->frame_type);
+		fpsgo_com_queue_end(f_render, enqueue_end_time, sample);
 		break;
 	case BY_PASS_TYPE:
 		break;
@@ -372,6 +374,41 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	}
 	fpsgo_thread_unlock(&f_render->thr_mlock);
 
+}
+void fpsgo_ctrl2comp_ged_frame(int pid, u64 ts, u64 window_id,
+	const struct xgf_runtime_sample *sample)
+{
+	/* Keep the GED render key separate from the legacy queue mapping. */
+	u64 identifier = window_id ^ BIT_ULL(47);
+	struct render_info *render;
+
+	if (fpsgo_com_check_is_surfaceflinger(pid) != FPSGO_COM_IS_RENDER)
+		return;
+
+	fpsgo_render_tree_lock(__func__);
+	render = fpsgo_search_and_add_render_info(pid, identifier, 1);
+	if (!render) {
+		fpsgo_render_tree_unlock(__func__);
+		return;
+	}
+	fpsgo_thread_lock(&render->thr_mlock);
+	fpsgo_render_tree_unlock(__func__);
+
+	if (render->identifier != identifier || render->t_enqueue_start ||
+	    !list_empty(&render->bufferid_list))
+		goto unlock;
+
+	render->buffer_id = window_id;
+	render->queue_SF = 1;
+	render->api = NATIVE_WINDOW_API_EGL;
+	render->frame_type = NON_VSYNC_ALIGNED_TYPE;
+	if (!render->pLoading || !render->p_blc)
+		fpsgo_base2fbt_node_init(render);
+
+	fpsgo_com_queue_end(render, ts, sample);
+
+unlock:
+	fpsgo_thread_unlock(&render->thr_mlock);
 }
 
 void fpsgo_ctrl2comp_dequeue_start(int pid,

@@ -10,6 +10,10 @@
 #include <linux/ktime.h>
 #include <linux/fs.h>
 
+#if defined(CONFIG_MTK_FPSGO_V3) && defined(CONFIG_MACH_MT6765)
+void fpsgo_ged_queue_frame(int owner_pid, u64 window_id);
+#endif
+
 struct fps_level {
 	int start;
 	int end;

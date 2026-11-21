@@ -144,6 +144,13 @@ int ged_bridge_gpu_timestamp(
 					psGpuBeginINT->i32FrameID,
 					psGpuBeginINT->fence_fd,
 					psGpuBeginINT->QedBuffer_length);
+#if defined(CONFIG_MTK_FPSGO_V3) && defined(CONFIG_MACH_MT6765)
+			if (psGpuBeginOUT->eError == GED_OK &&
+			    psGpuBeginINT->QedBuffer_length >= 0 &&
+			    !psGpuBeginINT->isSF)
+				fpsgo_ged_queue_frame(psGpuBeginINT->pid,
+					psGpuBeginINT->ullWnd);
+#endif
 		} else {
 			psGpuBeginOUT->eError =
 				ged_kpi_acquire_buffer_ts(psGpuBeginINT->pid,

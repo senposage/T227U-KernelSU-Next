@@ -6,6 +6,7 @@
 #include <linux/unistd.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/cpufreq.h>
 #include <linux/topology.h>
 
@@ -39,6 +40,7 @@ enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_NN_JOB_END			= 0x06,
 	FPSGO_NOTIFIER_GPU_BLOCK			= 0x07,
 	FPSGO_NOTIFIER_VSYNC				= 0x08,
+	FPSGO_NOTIFIER_GED_FRAME			= 0x09,
 };
 
 /* TODO: use union*/
@@ -46,6 +48,7 @@ struct FPSGO_NOTIFIER_PUSH_TAG {
 	enum FPSGO_NOTIFIER_PUSH_TYPE ePushType;
 
 	int pid;
+	int tgid;
 	unsigned long long cur_ts;
 
 	int enable;
@@ -80,6 +83,9 @@ static int fpsgo_enable;
 static int fpsgo_force_onoff;
 static int gpu_boost_enable_perf;
 static int gpu_boost_enable_camera;
+static int fpsgo_ged_tgid;
+module_param_named(ged_tgid, fpsgo_ged_tgid, int, 0600);
+MODULE_PARM_DESC(ged_tgid, "Process to receive GED frame hints, or zero to disable");
 
 void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 
@@ -265,6 +271,12 @@ static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 	case FPSGO_NOTIFIER_VSYNC:
 		fpsgo_notifier_wq_cb_vsync(vpPush->cur_ts);
 		break;
+	case FPSGO_NOTIFIER_GED_FRAME:
+		if (vpPush->tgid == READ_ONCE(fpsgo_ged_tgid) &&
+		    fpsgo_is_enable())
+			fpsgo_ctrl2comp_ged_frame(vpPush->pid, vpPush->cur_ts,
+				vpPush->bufID, &vpPush->runtime_sample);
+		break;
 	default:
 		FPSGO_LOGE("[FPSGO_CTRL] unhandled push type = %d\n",
 				vpPush->ePushType);
@@ -272,6 +284,35 @@ static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 	}
 
 	fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+}
+
+void fpsgo_ged_queue_frame(int owner_pid, u64 window_id)
+{
+	struct FPSGO_NOTIFIER_PUSH_TAG *push;
+	struct workqueue_struct *wq;
+	int tgid = READ_ONCE(fpsgo_ged_tgid);
+
+	if (tgid <= 0 || !window_id || task_tgid_nr(current) != tgid ||
+	    (owner_pid > 0 && owner_pid != tgid) || !READ_ONCE(fpsgo_enable))
+		return;
+
+	wq = READ_ONCE(g_psNotifyWorkQueue);
+	if (!wq)
+		return;
+
+	push = fpsgo_alloc_atomic(sizeof(*push));
+	if (!push)
+		return;
+
+	push->ePushType = FPSGO_NOTIFIER_GED_FRAME;
+	push->pid = task_pid_nr(current);
+	push->tgid = tgid;
+	push->bufID = window_id;
+	push->runtime_sample = xgf_sample_runtime(push->pid);
+	push->cur_ts = fpsgo_get_time();
+
+	INIT_WORK(&push->sWork, fpsgo_notifier_wq_cb);
+	queue_work(wq, &push->sWork);
 }
 
 void fpsgo_notify_qudeq(int qudeq,
