@@ -323,12 +323,21 @@ static const struct of_device_id mtk_dvfsrc_debug_of_match[] = {
 	},
 };
 
+#ifdef CONFIG_MACH_MT6765
+static const struct dev_pm_ops dvfsrc_debug_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(dvfsrc_vsram_test_suspend, NULL)
+};
+#endif
+
 static struct platform_driver mtk_dvfsrc_debug_driver = {
 	.probe	= mtk_dvfsrc_debug_probe,
 	.remove	= mtk_dvfsrc_debug_remove,
 	.driver = {
 		.name = "mtk-dvfsrc-debug",
 		.of_match_table = of_match_ptr(mtk_dvfsrc_debug_of_match),
+#ifdef CONFIG_MACH_MT6765
+		.pm = &dvfsrc_debug_pm_ops,
+#endif
 	},
 };
 

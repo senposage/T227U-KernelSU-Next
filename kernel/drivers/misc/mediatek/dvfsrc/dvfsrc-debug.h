@@ -31,6 +31,9 @@ struct mtk_dvfsrc {
 	struct device *dev;
 	struct icc_path *path;
 	struct regulator *vcore_power;
+#ifdef CONFIG_MACH_MT6765
+	struct regulator *vsram_test_power;
+#endif
 	struct regulator *dvfsrc_vcore_power;
 	struct regulator *dvfsrc_vscp_power;
 	int num_perf;
@@ -53,6 +56,7 @@ extern const struct dvfsrc_config mt6779_dvfsrc_config;
 extern const struct dvfsrc_config mt6761_dvfsrc_config;
 #ifdef CONFIG_MACH_MT6765
 extern const struct attribute_group dvfsrc_top_vcore_group;
+int dvfsrc_vsram_test_suspend(struct device *dev);
 #endif
 #endif
 
