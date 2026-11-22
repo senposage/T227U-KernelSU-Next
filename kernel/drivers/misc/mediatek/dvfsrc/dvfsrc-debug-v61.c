@@ -107,12 +107,14 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 #define TOP_VCORE_SELECTOR(uv)	(((uv) - TOP_VCORE_BASE_UV) / TOP_VCORE_STEP_UV)
 
 #define VSRAM_TEST_STOCK_UV	900000
-#define VSRAM_TEST_MAX_UV	950000
+#define VSRAM_TEST_MAX_UV	962500
 #define VSRAM_TEST_FLOOR_UV	700000
 #define VSRAM_TEST_HEADROOM_UV	75000
+#define VSRAM_TEST_MAX_GAP_UV	250000
 
 static DEFINE_MUTEX(top_vcore_lock);
 static struct mtk_pm_qos_request vsram_test_floor;
+static int vsram_test_floor_opp = VCORE_OPP_UNREQ;
 
 static int dvfsrc_top_vcore_read_cmd(struct mtk_dvfsrc *dvfsrc, u32 *cmd)
 {
@@ -259,9 +261,28 @@ static ssize_t dvfsrc_top_vcore_max_uv_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", max_uv);
 }
 
+static int dvfsrc_vsram_test_floor_for_voltage(int uv)
+{
+	return uv > VSRAM_TEST_FLOOR_UV + VSRAM_TEST_MAX_GAP_UV ?
+		VCORE_OPP_0 : VCORE_OPP_1;
+}
+
+static void dvfsrc_vsram_test_set_floor(int opp)
+{
+	if (opp == vsram_test_floor_opp)
+		return;
+
+	if (mtk_pm_qos_request_active(&vsram_test_floor))
+		mtk_pm_qos_update_request(&vsram_test_floor, opp);
+	else
+		mtk_pm_qos_add_request(&vsram_test_floor, MTK_PM_QOS_VCORE_OPP, opp);
+	vsram_test_floor_opp = opp;
+}
+
 static void dvfsrc_vsram_test_release(struct mtk_dvfsrc *dvfsrc)
 {
 	mtk_pm_qos_remove_request(&vsram_test_floor);
+	vsram_test_floor_opp = VCORE_OPP_UNREQ;
 	devm_regulator_put(dvfsrc->vsram_test_power);
 	dvfsrc->vsram_test_power = NULL;
 }
@@ -294,9 +315,9 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-	bool already_held;
 	u32 uv, cmd;
 	int old_uv, programmed_uv, live_uv, levels, ret;
+	int old_floor, new_floor, transition_floor;
 
 	if (kstrtou32(buf, 10, &uv))
 		return -EINVAL;
@@ -314,14 +335,14 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 	if (ret)
 		goto out;
 
-	already_held = mtk_pm_qos_request_active(&vsram_test_floor);
+	old_floor = vsram_test_floor_opp;
 	old_uv = regulator_get_voltage(dvfsrc->vsram_test_power);
 	if (old_uv < VSRAM_TEST_STOCK_UV || old_uv > VSRAM_TEST_MAX_UV ||
-	    (!already_held && old_uv != VSRAM_TEST_STOCK_UV)) {
+	    (old_floor == VCORE_OPP_UNREQ && old_uv != VSRAM_TEST_STOCK_UV)) {
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
-	if (uv == VSRAM_TEST_STOCK_UV && !already_held)
+	if (uv == VSRAM_TEST_STOCK_UV && old_floor == VCORE_OPP_UNREQ)
 		goto out;
 
 	programmed_uv = TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV;
@@ -336,15 +357,19 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 		goto out;
 	}
 
-	if (!already_held)
-		mtk_pm_qos_add_request(&vsram_test_floor, MTK_PM_QOS_VCORE_OPP, VCORE_OPP_1);
+	new_floor = dvfsrc_vsram_test_floor_for_voltage(uv);
+	/* Raise the floor before raising SRAM. Relax it after SRAM falls. */
+	transition_floor = min3(old_floor, new_floor,
+				dvfsrc_vsram_test_floor_for_voltage(old_uv));
+	dvfsrc_vsram_test_set_floor(transition_floor);
 
 	live_uv = regulator_get_voltage(dvfsrc->vcore_power);
-	if (mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP) > VCORE_OPP_1 ||
+	if (mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP) > transition_floor ||
 	    live_uv < VSRAM_TEST_FLOOR_UV ||
+	    live_uv < max_t(int, old_uv, uv) - VSRAM_TEST_MAX_GAP_UV ||
 	    live_uv > min_t(int, old_uv, uv) - VSRAM_TEST_HEADROOM_UV) {
 		ret = -EAGAIN;
-		goto undo_new_floor;
+		goto restore_floor;
 	}
 
 	ret = regulator_set_voltage(dvfsrc->vsram_test_power, uv, uv);
@@ -359,16 +384,20 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 		}
 		if (!ret)
 			ret = -EIO;
-		goto undo_new_floor;
+		goto restore_floor;
 	}
 
 	if (uv == VSRAM_TEST_STOCK_UV)
 		dvfsrc_vsram_test_release(dvfsrc);
+	else
+		dvfsrc_vsram_test_set_floor(new_floor);
 	goto out;
 
-undo_new_floor:
-	if (!already_held)
+restore_floor:
+	if (old_floor == VCORE_OPP_UNREQ)
 		dvfsrc_vsram_test_release(dvfsrc);
+	else
+		dvfsrc_vsram_test_set_floor(old_floor);
 out:
 	mutex_unlock(&top_vcore_lock);
 	if (ret)
