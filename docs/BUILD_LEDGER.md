@@ -938,3 +938,53 @@ FM reception is outside the supported feature list for this device.
   modes, and the single Manager 33457 APK. The image and installer
   display string are the only changed payloads from the r9 template.
   Build #34 boot and GPU stability remain pending device testing.
+
+## 2026-11-22 runtime top VCORE test builds #35 and #36
+
+- Build #35 used 0d9556a6871cde6b9ac752e92d5a079f883dac1f and
+  passed the link and the 203-export CRC gate. It was superseded
+  before packaging when the host harness flagged the unsigned
+  conversion in the sysfs write return expression. Logs
+  /home/legit-su/t227u-20261122-vcore-build.log and
+  /home/legit-su/t227u-20261122-vcore-crc.log.
+- Build #36 used 1c594628196ec2fed5189c143108f7508ea1d980 on
+  codex/t227u-kernel-bringup. Exact kernel changes are in the two
+  commits. They cover the MT6765 DVFSRC debug driver, its header,
+  the SPM common wrapper, and the secure service header. Build
+  #36 preserves signed write errors explicitly.
+- The test sysfs file is
+  /sys/devices/platform/10012000.dvfsrc/helio-dvfsrc/dvfsrc_top_vcore_uv.
+  It accepts 800000, 806250, 812500, 818750, or 825000 in µV.
+  Writing 0 restores the stock 800000 µV command. No voltage
+  change runs automatically. A read shows the programmed command,
+  the PMIC regulator readback, and the active DVFSRC gear. The
+  regulator may reflect the new command only on a gear transition.
+  This experiment adjusts shared VCORE for all users of the top gear.
+- The code verifies the current firmware gear and SPM command
+  layout before invoking the locked secure service. It checks the
+  return value and command readback and attempts rollback when
+  the top command changes unexpectedly. The compiled host
+  harness covered all selectors, range rejection, command and
+  regulator reporting, reset, firmware errors, mismatched
+  command rollback, and rejection of other layouts. Linked
+  symbols include the sysfs attribute, its two callbacks, and the
+  SPM wrapper. The 16 linked GPU OPP rows match build #34.
+- Reused the #26 command, Clang 11.0.1, the established
+  /home/legit-su/t227u-public-repro-build output directory and
+  config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Kernel release 4.19.191-28847731-abT227USQSCEYE2.
+- Checkpatch passed. The final link reported the existing 14
+  section mismatches and three duplicate exports. The CRC gate
+  fixed 28 CRCs and validated all 203 mapped exports. All seven
+  vendor connectivity module import checks passed. Logs in
+  /home/legit-su with prefix t227u-20261122-vcore and suffixes
+  -final-build.log, -final-crc.log, -host.log, -symbols.log,
+  -imports.log, and -package.log.
+- Local E:\T227U-VC.zip SHA-256
+  9313b4a803e480303c62ea4ed34afa68b741bb91a3170794c418ed7625b24360.
+  CRC-patched Image.gz SHA-256
+  4adda16bc59999cf08816202c69ca025258a65f3d3d768f322e572ae4a7f3ae1.
+  ZIP integrity, embedded image identity, single Manager APK, and
+  installer payload comparison passed. Boot, firmware acceptance,
+  and active-gear rail readback remain pending on hardware.

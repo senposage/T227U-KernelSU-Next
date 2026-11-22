@@ -465,3 +465,24 @@ it was tested here.
   versus the nominal GPU table entry of 825 mV. The GPU driver
   reported VSRAM at 875 mV. No limit was active. This was a
   point-in-time read with zero instantaneous GPU utilization.
+
+## 2026-11-22 GPU 1 GHz and VCORE command identification
+
+- On build #34 the user observed immediate visual corruption at
+  1,000 MHz and reported that the tablet remained responsive.
+  Later ADB reads showed the ceiling back at 900 MHz with a
+  399.952 MHz idle clock. The GED log counted 29,055 ms at its
+  nominal 1 GHz OPP and 328 ms at 975 MHz. These are software
+  residency counters. The sample did not confirm an exact 1 GHz
+  hardware clock or sustained rendering stability.
+- The filtered post-event kernel and logcat snapshots contained
+  no matching GPU faults, hangs, resets, or timeouts. Clock and
+  rail were read only. The observation does not isolate voltage
+  margin from the experimental divider or other clock behavior.
+- Confirmed the live SPM command words on this firmware were
+  0x152a002d, 0x152a0025, 0x152a001d, 0x152a0019, 0x152a0015.
+  MT6357 register 0x152a is the VCORE voltage selector. Using the
+  regulator driver's 518,750 µV base and 6,250 µV step, these
+  commands decode to 800, 750, 700, 675, and 650 mV. The stock
+  DVFSRC table exposes four requestable gears. The existing
+  800 mV top gear matched command slot zero and regulator readback.
