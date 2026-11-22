@@ -51,5 +51,8 @@ extern void dvfsrc_unregister_sysfs(struct device *dev);
 
 extern const struct dvfsrc_config mt6779_dvfsrc_config;
 extern const struct dvfsrc_config mt6761_dvfsrc_config;
+#ifdef CONFIG_MACH_MT6765
+extern struct device_attribute dev_attr_dvfsrc_top_vcore_uv;
+#endif
 #endif
 

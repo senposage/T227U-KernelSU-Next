@@ -6,6 +6,8 @@
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/mfd/mt6357/registers.h>
+#include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -93,6 +95,105 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 {
 	return readl(dvfs->spm_regs + dvfs->dvd->config->spm_regs[reg]);
 }
+
+#ifdef CONFIG_MACH_MT6765
+#define TOP_VCORE_BASE_UV	518750
+#define TOP_VCORE_STEP_UV	6250
+#define TOP_VCORE_STOCK_UV	800000
+#define TOP_VCORE_MAX_UV	825000
+#define TOP_VCORE_CMD		0
+#define TOP_VCORE_PMIC_REG	((u32)MT6357_RG_BUCK_VCORE_VOSEL_ADDR << 16)
+#define TOP_VCORE_SELECTOR(uv)	(((uv) - TOP_VCORE_BASE_UV) / TOP_VCORE_STEP_UV)
+
+static DEFINE_MUTEX(top_vcore_lock);
+
+static int dvfsrc_top_vcore_read_cmd(struct mtk_dvfsrc *dvfsrc, u32 *cmd)
+{
+	if (!dvfsrc->spm_regs || !dvfsrc->vcore_power || dvfsrc->num_vopp != 4 ||
+	    !dvfsrc->vopp_uv_tlb || dvfsrc->vopp_uv_tlb[0] != TOP_VCORE_STOCK_UV)
+		return -EOPNOTSUPP;
+
+	/* Confirm the firmware's VCORE command layout before using slot 0. */
+	if (spm_read(dvfsrc, SPM_DVFS_CMD1) != (TOP_VCORE_PMIC_REG | 0x25) ||
+	    spm_read(dvfsrc, SPM_DVFS_CMD2) != (TOP_VCORE_PMIC_REG | 0x1d) ||
+	    spm_read(dvfsrc, SPM_DVFS_CMD3) != (TOP_VCORE_PMIC_REG | 0x19) ||
+	    spm_read(dvfsrc, SPM_DVFS_CMD4) != (TOP_VCORE_PMIC_REG | 0x15))
+		return -EOPNOTSUPP;
+
+	*cmd = spm_read(dvfsrc, SPM_DVFS_CMD0);
+	if (*cmd < (TOP_VCORE_PMIC_REG | TOP_VCORE_SELECTOR(TOP_VCORE_STOCK_UV)) ||
+	    *cmd > (TOP_VCORE_PMIC_REG | TOP_VCORE_SELECTOR(TOP_VCORE_MAX_UV)))
+		return -EOPNOTSUPP;
+
+	return 0;
+}
+
+static ssize_t dvfsrc_top_vcore_uv_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+	u32 cmd;
+	int ret;
+	int live_uv;
+	int gear;
+
+	mutex_lock(&top_vcore_lock);
+	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &cmd);
+	if (!ret) {
+		live_uv = regulator_get_voltage(dvfsrc->vcore_power);
+		gear = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP);
+		ret = scnprintf(buf, PAGE_SIZE,
+				"programmed_uv=%u live_uv=%d active_gear=%d\n",
+				TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV,
+				live_uv, gear);
+	}
+	mutex_unlock(&top_vcore_lock);
+
+	return ret;
+}
+
+static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+	u32 uv, selector, old_cmd, new_cmd;
+	int ret;
+	long status;
+
+	if (kstrtou32(buf, 10, &uv))
+		return -EINVAL;
+	if (!uv)
+		uv = TOP_VCORE_STOCK_UV;
+	if (uv < TOP_VCORE_STOCK_UV || uv > TOP_VCORE_MAX_UV ||
+	    (uv - TOP_VCORE_BASE_UV) % TOP_VCORE_STEP_UV)
+		return -EINVAL;
+
+	selector = TOP_VCORE_SELECTOR(uv);
+
+	mutex_lock(&top_vcore_lock);
+	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &old_cmd);
+	if (ret || old_cmd == (TOP_VCORE_PMIC_REG | selector))
+		goto out;
+
+	status = mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, selector);
+	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &new_cmd);
+	if (status || ret || new_cmd != (TOP_VCORE_PMIC_REG | selector)) {
+		if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd) {
+			mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, old_cmd & 0x7f);
+			if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd)
+				dev_err(dev, "failed to restore VCORE command slot 0\n");
+		}
+		dev_warn(dev, "top VCORE update failed, firmware status %ld\n", status);
+		ret = status == SIP_SVC_E_NOT_SUPPORTED ? -EOPNOTSUPP : -EIO;
+	}
+
+out:
+	mutex_unlock(&top_vcore_lock);
+	return ret ? ret : count;
+}
+
+DEVICE_ATTR_RW(dvfsrc_top_vcore_uv);
+#endif /* CONFIG_MACH_MT6765 */
 
 #if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
 #define MTK_SIP_VCOREFS_DVFS_HOPPING_STATE 20

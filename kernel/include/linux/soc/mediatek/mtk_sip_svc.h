@@ -152,6 +152,10 @@
 /* VCOREFS */
 #define MTK_SIP_VCOREFS_CONTROL \
 	MTK_SIP_SMC_CMD(0x506)
+#ifdef CONFIG_MACH_MT6765
+extern long mt6765_spm_write_pwrap_cmd(int pwrap_cmd, int pwrap_vcore);
+#endif
+
 /* MTK LPM */
 #define MTK_SIP_MTK_LPM_CONTROL \
 	MTK_SIP_SMC_CMD(0x507)

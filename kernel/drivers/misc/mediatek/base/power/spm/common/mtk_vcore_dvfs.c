@@ -41,14 +41,29 @@ void mtk_spmfw_init(int dvfsrc_en, int skip_check)
 	spm_go_to_vcorefs(spm_dvfs_flag_init(dvfsrc_en));
 }
 
-void spm_dvfs_pwrap_cmd(int pwrap_cmd, int pwrap_vcore)
+static long spm_dvfs_pwrap_call(int pwrap_cmd, int pwrap_vcore)
 {
 	unsigned long flags;
+	long ret;
 
 	spin_lock_irqsave(&__spm_lock, flags);
 
-	mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
-			VCOREFS_SMC_CMD_3, pwrap_cmd, pwrap_vcore, 0);
+	ret = mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
+			     VCOREFS_SMC_CMD_3, pwrap_cmd, pwrap_vcore, 0);
 
 	spin_unlock_irqrestore(&__spm_lock, flags);
+
+	return ret;
 }
+
+void spm_dvfs_pwrap_cmd(int pwrap_cmd, int pwrap_vcore)
+{
+	spm_dvfs_pwrap_call(pwrap_cmd, pwrap_vcore);
+}
+
+#ifdef CONFIG_MACH_MT6765
+long mt6765_spm_write_pwrap_cmd(int pwrap_cmd, int pwrap_vcore)
+{
+	return spm_dvfs_pwrap_call(pwrap_cmd, pwrap_vcore);
+}
+#endif
