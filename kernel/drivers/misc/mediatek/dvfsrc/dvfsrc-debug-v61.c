@@ -109,7 +109,7 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 #define VSRAM_TEST_STOCK_UV	900000
 #define VSRAM_TEST_MAX_UV	950000
 #define VSRAM_TEST_FLOOR_UV	700000
-#define VSRAM_TEST_HEADROOM_UV	100000
+#define VSRAM_TEST_HEADROOM_UV	75000
 
 static DEFINE_MUTEX(top_vcore_lock);
 static struct mtk_pm_qos_request vsram_test_floor;
@@ -166,6 +166,36 @@ static ssize_t dvfsrc_top_vcore_uv_show(struct device *dev,
 	return ret;
 }
 
+static int dvfsrc_vsram_test_get_power(struct mtk_dvfsrc *dvfsrc)
+{
+	struct regulator *power;
+
+	if (dvfsrc->vsram_test_power)
+		return 0;
+
+	power = devm_regulator_get_optional(dvfsrc->dev, "vsram_others");
+	if (IS_ERR(power))
+		return PTR_ERR(power);
+
+	dvfsrc->vsram_test_power = power;
+	return 0;
+}
+
+/* Called with top_vcore_lock held. Always allow restoring the stock target. */
+static int dvfsrc_top_vcore_limit(struct mtk_dvfsrc *dvfsrc)
+{
+	int vsram_uv;
+
+	if (dvfsrc_vsram_test_get_power(dvfsrc))
+		return TOP_VCORE_STOCK_UV;
+
+	vsram_uv = regulator_get_voltage(dvfsrc->vsram_test_power);
+	if (vsram_uv < TOP_VCORE_STOCK_UV + VSRAM_TEST_HEADROOM_UV)
+		return TOP_VCORE_STOCK_UV;
+
+	return min(vsram_uv - VSRAM_TEST_HEADROOM_UV, TOP_VCORE_MAX_UV);
+}
+
 static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -186,17 +216,15 @@ static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 
 	mutex_lock(&top_vcore_lock);
 	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &old_cmd);
-	if (ret || old_cmd == (TOP_VCORE_PMIC_REG | selector))
+	if (ret)
 		goto out;
 
-	if (mtk_pm_qos_request_active(&vsram_test_floor) &&
-	    uv != TOP_VCORE_STOCK_UV &&
-	    (!dvfsrc->vsram_test_power ||
-	     regulator_get_voltage(dvfsrc->vsram_test_power) <
-	     (int)(uv + VSRAM_TEST_HEADROOM_UV))) {
+	if (uv > TOP_VCORE_STOCK_UV && (int)uv > dvfsrc_top_vcore_limit(dvfsrc)) {
 		ret = -ERANGE;
 		goto out;
 	}
+	if (old_cmd == (TOP_VCORE_PMIC_REG | selector))
+		goto out;
 
 	status = mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, selector);
 	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &new_cmd);
@@ -222,30 +250,13 @@ static ssize_t dvfsrc_top_vcore_max_uv_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-	int max_uv = TOP_VCORE_MAX_UV;
+	int max_uv;
 
 	mutex_lock(&top_vcore_lock);
-	if (mtk_pm_qos_request_active(&vsram_test_floor) && dvfsrc->vsram_test_power)
-		max_uv = clamp(regulator_get_voltage(dvfsrc->vsram_test_power) -
-			       VSRAM_TEST_HEADROOM_UV, TOP_VCORE_STOCK_UV, max_uv);
+	max_uv = dvfsrc_top_vcore_limit(dvfsrc);
 	mutex_unlock(&top_vcore_lock);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", max_uv);
-}
-
-static int dvfsrc_vsram_test_get_power(struct mtk_dvfsrc *dvfsrc)
-{
-	struct regulator *power;
-
-	if (dvfsrc->vsram_test_power)
-		return 0;
-
-	power = devm_regulator_get_optional(dvfsrc->dev, "vsram_others");
-	if (IS_ERR(power))
-		return PTR_ERR(power);
-
-	dvfsrc->vsram_test_power = power;
-	return 0;
 }
 
 static void dvfsrc_vsram_test_release(struct mtk_dvfsrc *dvfsrc)
@@ -268,11 +279,12 @@ static ssize_t dvfsrc_vsram_test_uv_show(struct device *dev,
 	ret = dvfsrc_vsram_test_get_power(dvfsrc);
 	if (!ret)
 		ret = scnprintf(buf, PAGE_SIZE,
-				"vsram_uv=%d vcore_uv=%d active_gear=%d floor_active=%d\n",
+				"vsram_uv=%d vcore_uv=%d active_gear=%d floor_active=%d max_uv=%d min_delta_uv=%d\n",
 				regulator_get_voltage(dvfsrc->vsram_test_power),
 				regulator_get_voltage(dvfsrc->vcore_power),
 				mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP),
-				mtk_pm_qos_request_active(&vsram_test_floor));
+				mtk_pm_qos_request_active(&vsram_test_floor),
+				VSRAM_TEST_MAX_UV, VSRAM_TEST_HEADROOM_UV);
 	mutex_unlock(&top_vcore_lock);
 
 	return ret;
