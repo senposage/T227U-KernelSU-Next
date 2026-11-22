@@ -292,3 +292,49 @@ it was tested here.
   Restored command history to on and block I/O accounting to off.
   The scripts, trial data, and health snapshots are archived locally at
   `/home/legit-su/t227u-io-ab-20261121.0RMvoZ`.
+
+## 2026-11-21 CPU hotplug and MicroG install on build #30
+
+- The initial online mask was `0,5-6`. CPUFreq listed the performance
+  policy as CPUs 0–3 and the efficiency policy as CPUs 4–7. Both
+  online little cores ran an affinity-pinned workload at full load.
+  An unpinned six-worker run saturated the three available cores.
+- The final PPM policy requested four cores per cluster and its thermal
+  limit was inactive. The KA settings contained 18 legacy per-core
+  online or chmod records. Those records offlined CPUs 1–4 and 7
+  and set the node permissions to 0444. The user settings were backed
+  up locally before removing those records. All other records were
+  preserved. The affected node permissions were restored and the
+  tablet reported `0-7`.
+- A three-second unpinned eight-worker run advanced the busy
+  counters for little CPUs 4–7 by 300, 302, 301, and 299 ticks.
+  The mask remained `0-7` after the load. Both CPUFreq policies
+  retained their governor and frequency limits.
+- The ReVanced MicroG install used ART's `speed` compiler filter
+  for ARM64 and ARM. The two passes completed successfully in 70.6
+  and 71.7 seconds. A live sample showed the compiler using about
+  4.5 cores with low I/O wait. Android reported the app installed.
+- Settings backup and the list of removed entries are private at
+  `/home/legit-su/t227u-hotplug-20261121.caON3A`. The updated KA
+  APK was installed. Android returned the expected APK checksum
+  and CPU online mask `0-7`.
+
+### Internal eMMC speed with all eight CPUs online
+
+- After the CPU recovery and MicroG installation, #30 reported
+  CPUs 0–7 online and the `mq-deadline` scheduler. The benchmark
+  used three queue-depth-one direct read trials on the physical
+  userdata extents of a 192 MiB scratch file.
+- Median sequential 128 KiB read was 214.20 MiB/s. The three runs
+  reported 217.56, 214.20, and 203.89 MiB/s. Median random 4 KiB
+  read was 29.78 MiB/s (about 7,623 IOPS). The three runs reported
+  29.90, 29.78, and 21.42 MiB/s. Median run p99 was 777 µs
+  sequential and 199 µs random.
+- The 192 MiB F2FS scratch-file write including fsync was 103.19
+  MiB/s. The raw partition was opened read-only and the scratch file
+  was removed. Each read trial advanced the eMMC sector counter
+  by at least the expected 425,984 sectors.
+- Command history was on during the measurement. It was turned off
+  afterward per the user's preference. The original block I/O
+  accounting state was restored. Local log and harness
+  `/home/legit-su/t227u-raw-io-20261121.UwKFSV`.
