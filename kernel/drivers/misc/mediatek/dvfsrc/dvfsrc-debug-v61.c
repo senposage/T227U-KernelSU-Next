@@ -109,8 +109,9 @@ static DEFINE_MUTEX(top_vcore_lock);
 
 static int dvfsrc_top_vcore_read_cmd(struct mtk_dvfsrc *dvfsrc, u32 *cmd)
 {
-	if (!dvfsrc->spm_regs || !dvfsrc->vcore_power || dvfsrc->num_vopp != 4 ||
-	    !dvfsrc->vopp_uv_tlb || dvfsrc->vopp_uv_tlb[0] != TOP_VCORE_STOCK_UV)
+	if (!dvfsrc->spm_regs || !dvfsrc->vcore_power ||
+	    mtk_dvfsrc_vcore_opp_count() != 4 ||
+	    mtk_dvfsrc_vcore_uv_table(0) != TOP_VCORE_STOCK_UV)
 		return -EOPNOTSUPP;
 
 	/* Confirm the firmware's VCORE command layout before using slot 0. */
@@ -137,16 +138,22 @@ static ssize_t dvfsrc_top_vcore_uv_show(struct device *dev,
 	int live_uv;
 	int gear;
 
+	if (!dvfsrc->vcore_power)
+		return -ENODEV;
+
 	mutex_lock(&top_vcore_lock);
+	live_uv = regulator_get_voltage(dvfsrc->vcore_power);
+	gear = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP);
 	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &cmd);
-	if (!ret) {
-		live_uv = regulator_get_voltage(dvfsrc->vcore_power);
-		gear = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP);
+	if (ret)
+		ret = scnprintf(buf, PAGE_SIZE,
+				"programmed_uv=unavailable live_uv=%d active_gear=%d\n",
+				live_uv, gear);
+	else
 		ret = scnprintf(buf, PAGE_SIZE,
 				"programmed_uv=%u live_uv=%d active_gear=%d\n",
 				TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV,
 				live_uv, gear);
-	}
 	mutex_unlock(&top_vcore_lock);
 
 	return ret;
