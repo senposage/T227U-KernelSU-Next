@@ -1233,3 +1233,49 @@ FM reception is outside the supported feature list for this device.
   Release assets include KA 267, the identical standalone
   Manager APK, the trainer, and SHA256SUMS.txt. Build #47
   boot and the new extremes remain pending device validation.
+
+### K-20261122-48-VCORE-REFRESH
+
+- Packaged 2026-11-22 at 02:14 EST on
+  `codex/t227u-kernel-bringup` at
+  `1d6c98992c9a2b291866e6f352d303319d6d70b4`. Relative to
+  build #47, the only source hunks are in
+  `kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c`.
+  The unified-zero hunk ranges are `-200,0 +201,55`,
+  `-228,10 +283,7`, `-239,2 +290,0`, and `-242,0 +293,10`.
+  The boot ramdisk is preserved by the existing r9 installer.
+- With the elevated VSRAM floor active and gear 0 selected,
+  a top VCORE write also refreshes the PMIC regulator if it
+  still reports the previous voltage. The refresh holds gear 0,
+  checks both rail gaps, and verifies the live readback. The
+  temporary gear request and regulator consumer are released,
+  and failure rolls back the firmware slot.
+- Used the established `/home/legit-su/t227u-public-repro-build`
+  output and config
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+
+  ```sh
+  export PATH=/home/legit-su/kernel_src.oc.tar/toolchain_611/bin:$PATH
+  make -C kernel O=/home/legit-su/t227u-public-repro-build ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+    CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS=-w \
+    CONFIG_SECTION_MISMATCH_WARN_ONLY=y KSU_VERSION_OVERRIDE=33355 \
+    KSU_VERSION_TAG_OVERRIDE=legacy-susfs-manual@465490a2 -j8
+  out=/home/legit-su/t227u-public-repro-build
+  tools/t227u/vendor_crc_gate.sh apply "$out/vmlinux" "$out/arch/arm64/boot/Image.gz"
+  ```
+
+- Host checks passed for active-gear reapply, repeating the
+  same requested voltage, failed apply and rollback. The CRC
+  gate verified 203 exports, with zero mismatches after
+  patching. The separate import scan passed for all seven
+  Wi-Fi, Bluetooth, connectivity, GPS and FM modules. The
+  linked OPP tables and ZIP contents passed. Logs use the
+  `/home/legit-su/t227u-20261122-vcore-refresh` prefix with
+  `-build.log`, `-crc.log`, `-host.log`, `-imports.log`,
+  and `-package.log` suffixes.
+- Local flashable `E:\T227U-VF.zip` SHA-256
+  `80cbf8efcefcfd2cbd4242ea9f83a8aaab03fe1bba276287dce65cc89d694d7d`.
+  Embedded image SHA-256
+  `662e87e346c0c0001da512d59da0ac9b466d18dba488d06d5ba82de26561e70f`.
+  The installer carries one Manager APK. Device status:
+  **untested**.

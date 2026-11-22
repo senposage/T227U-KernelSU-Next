@@ -633,3 +633,17 @@ it was tested here.
   A subsequent read measured 875 mV VCORE and 962.5 mV VSRAM,
   with the floor active. The planned gear cycle was skipped
   because the live rail had already reached the requested target.
+
+### Build #47 elevated VSRAM with stale live VCORE
+
+- On the SM-T227U running public r9, VSRAM read 1,000 mV,
+  and the SRAM guard was holding gear 0. The SPM top VCORE
+  slot read 900 mV while the regulator read 800 mV. This
+  reproduced the difference between programmed and live
+  voltage while the gear was held.
+- The GPU stress-test node reported `g_opp_stress_test_state = 0`.
+  KA's rail-test status referred to the elevated-VSRAM
+  guard, which holds a minimum VCORE and blocks suspend
+  while elevated. The inspection performed no rail writes.
+- Build #48 addresses this case. Hardware confirmation of
+  the live-voltage refresh is pending.
