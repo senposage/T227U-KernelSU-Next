@@ -988,3 +988,26 @@ FM reception is outside the supported feature list for this device.
   ZIP integrity, embedded image identity, single Manager APK, and
   installer payload comparison passed. Boot, firmware acceptance,
   and active-gear rail readback remain pending on hardware.
+
+## 2026-11-22 VCORE readback test build #37
+
+- Built 9f2071bace518519042fd8e46644f0445e7d09bc on
+  codex/t227u-kernel-bringup. The source diff is in
+  kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c. Uses the
+  normalized gear table in the power driver and reports live
+  VCORE independently when the command preflight fails.
+- Built in /home/legit-su/t227u-public-repro-build with the #26
+  command and unchanged config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Host harness passed with ascending firmware table input and no
+  optional debug cache, including write rejection with a valid
+  live voltage readout. Checkpatch passed. All 203 mapped CRCs
+  and all seven vendor module import comparisons passed.
+- Logs in /home/legit-su under prefix t227u-20261122-vcore-a
+  with -build.log, -crc.log, -host.log, -imports.log, and
+  -package.log suffixes. CRC-patched image SHA-256
+  32e5e0b41791cd20085e32837c3ccb2940dd2ba21d6d701381be7ae841892f53.
+  Local E:\T227U-VC2.zip SHA-256
+  4c756d4b1270c4ae1a4c8014a6381d7107911b4924985de35912a18a8ea05f58
+  passed integrity, embedded image and installer payload checks.
+  Boot and live write acceptance remain pending.

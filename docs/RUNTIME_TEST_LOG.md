@@ -486,3 +486,17 @@ it was tested here.
   commands decode to 800, 750, 700, 675, and 650 mV. The stock
   DVFSRC table exposes four requestable gears. The existing
   800 mV top gear matched command slot zero and regulator readback.
+
+### Build #36 first device test
+
+- Build #36 booted. The user tried the 806250 µV write and saw
+  a zero GPU voltage reading. ADB confirmed the new sysfs file
+  returned EOPNOTSUPP on read, the same preflight that guards
+  writes. The SPM command still read 0x152a002d (800 mV).
+  Independent DVFSRC readback showed 700 mV at active gear 1
+  while the GPU-specific sample showed zero. No evidence of a
+  successful SPM write appeared in this run.
+- Build #37 validates the top gear through the power driver's
+  normalized table, which numbers the highest voltage as OPP 0.
+  Its readout keeps showing the independent rail voltage and
+  active gear even when the command layout cannot be verified.
