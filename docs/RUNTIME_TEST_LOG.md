@@ -427,3 +427,31 @@ it was tested here.
   `/home/legit-su/t227u-readahead.bFIMn7`. Private backup of
   the tablet's KA settings
   `/home/legit-su/t227u-io-default.3VOF6d`.
+
+## 2026-11-21 T227U VCORE gear audit
+
+- Asked the running T227USQSCEYE2 build #30 for
+  /sys/devices/platform/10012000.dvfsrc/10012000.dvfsrc:dvfsrc-up/dvfsrc_opp_table.
+  It reported firmware type 2, four VCORE gears, three DDR rates,
+  and sixteen combined levels. Matching the MT6765 firmware table
+  indices, VCORE OPPs 0 through 3 are 800, 700, 675, and 650 mV.
+  The independent dvfsrc_dump read the idle PMIC rail at 650 mV.
+  The OC voltage printed by the GPU OPP table is nominal. All GPU
+  requests above 700 mV select VCORE OPP 0, whose firmware target
+  on this tablet is 800 mV, including the 825 mV nominal request
+  in GPU test build #33.
+- The active MT6765 driver in kernel/drivers/soc/mediatek/mtk-dvfsrc.c
+  uses the mt6761_set_vcore_level handler. Its two-bit request field
+  already encodes all four gears. The kernel reads their voltages
+  through the secure VCOREFS service. Extending the GPU or Linux
+  DVFSRC table alone cannot address a fifth gear.
+- The linked spm_dvfs_pwrap_cmd helper submits a secure PMIC-wrapper
+  command. The MT6768 driver uses it to change an existing gear, but
+  its driver and slot mapping are separate from the MT6765 build.
+  T227U firmware support and the command slot for its top gear have
+  not been confirmed. If supported, reprogramming an existing gear
+  changes shared VCORE for every requester of that gear. The legacy
+  GPU fixed-voltage path writes the shared regulator directly and
+  does not check the regulator return code.
+- Read-only audit. There was no firmware, voltage or clock write,
+  and no reading of the top gear under a sustained workload.
