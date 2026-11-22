@@ -387,3 +387,43 @@ it was tested here.
   a dwell confirmed both values. The tablet kept 128 requests,
   128 KiB readahead, eMMC command history off, and CPUs 0–7
   online. The kernel log showed no matching MMC or F2FS errors.
+
+### Buffered readahead and the tablet's saved I/O profile
+
+- The earlier scheduler trials used direct reads. The readahead
+  follow-up held `mq-deadline`, `fifo_batch=4`, and
+  `wbt_lat_usec=2000` fixed. Each setting ran three trials of
+  a 96 MiB buffered sequential read and a 16 MiB buffered read
+  made up of shuffled groups of four adjacent 4 KiB pages.
+  The test evicted only its scratch file's cache between runs
+  and verified eMMC sector counts.
+- The Samsung queue accepts only the `temporary N` form of a
+  write to `read_ahead_kb`. The former KA entry used a plain
+  numeric write, and the active value had remained 128 KiB.
+  Every measured setting was read back before the trial.
+
+| Readahead | Sequential, MiB/s | Sequential p99, µs | Clustered, MiB/s | Clustered p99, µs | Clustered physical reads, MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 32 KiB | 158.49 | 264.6 | 22.68 | 351.1 | 60.00 |
+| 64 KiB | 207.11 | 326.0 | 22.59 | 340.2 | 60.00 |
+| 128 KiB, small-window pass | 250.88 | 461.5 | 24.86 | 393.5 | 52.00 |
+| 128 KiB, large-window pass | 255.46 | 411.4 | 24.15 | 407.5 | 52.00 |
+| 256 KiB | 283.00 | 678.1 | 24.35 | 402.5 | 51.95 |
+| 512 KiB | 298.64 | 1220.8 | 19.91 | 549.7 | 84.00 |
+| 1024 KiB | 296.99 | 2363.4 | 19.89 | 551.5 | 84.00 |
+
+- Kept 128 KiB as the balanced setting. Against 64 KiB in the same
+  pass, it read about 21% faster sequentially and 10% faster in
+  clusters, with 8 MiB less physical cluster traffic. The 64 KiB
+  setting reduced clustered p99 by about 53 µs. The larger windows
+  traded away tail latency or clustered throughput.
+- Applied the chosen settings live and stored the four commands in
+  the device's enabled KA I/O Apply on Boot category. The sequence
+  selects `mq-deadline`, writes `fifo_batch=4`, writes
+  `wbt_lat_usec=2000`, then writes `temporary 128` to
+  `read_ahead_kb`. Verified the live values and read back the
+  persisted settings after reopening KA. A reboot replay is pending.
+- Local benchmark harness and results
+  `/home/legit-su/t227u-readahead.bFIMn7`. Private backup of
+  the tablet's KA settings
+  `/home/legit-su/t227u-io-default.3VOF6d`.
