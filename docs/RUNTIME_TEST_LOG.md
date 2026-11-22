@@ -625,3 +625,11 @@ it was tested here.
   VSRAM during the capture. Logs are at
   /home/legit-su/t227u-20261122-rail-zero-samples.log.
   No voltage or clock change was made during capture.
+
+### Build #44 gear-held VCORE readback
+
+- With 962.5 mV VSRAM and gear 0 held, OPP0 had been written
+  to 875 mV while the live rail initially stayed at 850 mV.
+  A subsequent read measured 875 mV VCORE and 962.5 mV VSRAM,
+  with the floor active. The planned gear cycle was skipped
+  because the live rail had already reached the requested target.

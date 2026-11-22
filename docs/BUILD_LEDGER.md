@@ -1194,3 +1194,42 @@ FM reception is outside the supported feature list for this device.
   ZIP integrity, embedded image, installer payload and the
   tablet copy at /sdcard/Download/T227U-962.zip passed checks.
   Boot and rail testing on #44 are pending.
+
+## 2026-11-22 r9 release builds #45 through #47
+
+- Build #45 used 56fd8fcfa72bd046946f52425ab984e420bcf337.
+  It added 1.1/1.2 GHz GPU bins and a 975 mV SRAM ceiling.
+  Build #46 used 2284ee125fde2f41afdb5ba5f29d7038823c4a54
+  and set the absolute VCORE ceiling to 900 mV. Both passed
+  link and the CRC gate. These are superseded by build #47.
+- The release build #47 used source
+  792bd0cbf0f8687dc7b1dd0efd2067a100482fba on
+  codex/t227u-kernel-bringup. The three source commits contain
+  the complete diff in the GPU OPP driver/header and DVFSRC
+  debug driver. The SRAM test maximum is 1,000 mV and VCORE
+  remains capped at 900 mV with the 75 mV measured headroom
+  and 250 mV maximum test spread. The GPU starts capped at
+  680 MHz, with the 1.1 and 1.2 GHz bins opt-in.
+- All builds used the #26 command and established
+  /home/legit-su/t227u-public-repro-build output with config
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  The r9 kernel release is
+  4.19.191-28847731-abT227USQSCEYE2. The #47 link showed the
+  baseline section-mismatch and duplicate-export warnings.
+- Checkpatch and host rail, GPU ceiling, and PLL harnesses
+  passed. Verified all 18 Segment-3 table rows in the linked
+  ELF. The CRC gate validated all 203 entries with zero
+  remaining mismatches, and Wi-Fi, BT, connectivity, GPS
+  and FM vendor module imports passed the independent scan.
+  The #47 log prefix is /home/legit-su/t227u-20261122-r9-1v
+  with -build.log, -crc.log, -host.log, -imports.log and
+  -package.log suffixes.
+- E:\T227U-R9.zip SHA-256
+  484c67f2fc44bd851e49dd8b7d60b17edef5d0bf7328e9a45328f15fc0e071ae.
+  Image SHA-256
+  b3bf74955522e4581df03a08c5b7aa78ff8488295f9b0e14de9f6ea453f043e3.
+  Packaging verified the embedded image, installer identity,
+  a single Manager 33457 APK and every recovery payload mode.
+  Release assets include KA 267, the identical standalone
+  Manager APK, the trainer, and SHA256SUMS.txt. Build #47
+  boot and the new extremes remain pending device validation.
