@@ -101,7 +101,7 @@ __mt_gpufreq_get_vsram_volt_by_target_volt(unsigned int volt);
 static unsigned int
 __mt_gpufreq_get_limited_freq_by_power(unsigned int limited_power);
 static enum g_post_divider_power_enum
-__mt_gpufreq_get_post_divider_power(unsigned int freq, unsigned int efuse);
+__mt_gpufreq_get_post_divider_power(unsigned int freq);
 static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc);
 static void __mt_gpufreq_kick_pbm(int enable);
 static void __mt_gpufreq_clock_switch(unsigned int freq_new);
@@ -158,6 +158,13 @@ GPUOP(MT6765_SEG3_GPU_OC_FREQ2, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRA
 GPUOP(MT6765_SEG3_GPU_OC_FREQ3, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 3),
 GPUOP(MT6765_SEG3_GPU_OC_FREQ4, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 4),
 GPUOP(MT6765_SEG3_GPU_OC_FREQ5, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 5),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ6, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 6),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ7, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 7),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ8, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 8),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ9, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 9),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ10, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 10),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ11, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 11),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ12, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 12),
 GPUOP(SEG3_GPU_DVFS_FREQ0, SEG3_GPU_DVFS_VOLT0, SEG3_GPU_DVFS_VSRAM0,
 	MT6765_SEG3_GPU_OC_OPP_COUNT + 0),
 GPUOP(SEG3_GPU_DVFS_FREQ1, SEG3_GPU_DVFS_VOLT1, SEG3_GPU_DVFS_VSRAM1,
@@ -1505,6 +1512,11 @@ static ssize_t mt_gpufreq_fixed_freq_volt_proc_write(struct file *file,
 			g_fixed_freq = 0;
 			g_fixed_volt = 0;
 		} else {
+			/* Frequencies above 950 MHz require the OPP policy path. */
+			if (fixed_freq < POST_DIV_16_MIN_FREQ ||
+			    fixed_freq > POST_DIV_4_MAX_FREQ)
+				return -EINVAL;
+
 			g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 			fixed_volt = VOLT_NORMALIZATION(fixed_volt);
 			if (fixed_freq > g_cur_opp_freq) {
@@ -1656,8 +1668,13 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	 *    011 : /8
 	 *    100 : /16
 	 */
-	post_divider_power = __mt_gpufreq_get_post_divider_power(freq_new, 0);
+	post_divider_power = __mt_gpufreq_get_post_divider_power(freq_new);
 	dds = __mt_gpufreq_calculate_dds(freq_new, post_divider_power);
+	if (!dds)
+		return;
+
+	if (g_cur_post_divider_power != post_divider_power)
+		g_parking = true;
 
 	gpufreq_pr_debug(
 		"@%s: request GPU dds = 0x%x, cur_volt = %d, cur_freq = %d\n",
@@ -1679,6 +1696,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 		udelay(20);
 		/* clk26m to mfgpll_ck */
 		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
+		g_cur_post_divider_power = post_divider_power;
 		g_parking = false;
 	} else {
 #ifdef FHCTL_READY
@@ -1798,6 +1816,16 @@ static void __mt_gpufreq_set_fixed_volt(int fixed_volt)
 }
 
 /*
+ * Use a 1.95-2.0 GHz VCO for the Segment-3 test bins above the /4 limit.
+ * Those bins use the normal OPP ceiling and shared VCORE request.
+ */
+static bool __mt_gpufreq_use_post_div2(unsigned int freq)
+{
+	return g_segment_id == MT6765_SEGMENT && freq > POST_DIV_4_MAX_FREQ &&
+		freq <= MT6765_SEG3_GPU_TEST_MAX_FREQ;
+}
+
+/*
  * dds calculation for clock switching
  */
 static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
@@ -1809,8 +1837,10 @@ static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
 		__func__, freq_khz, (1 << post_divider_power));
 
 	/* [MT6765] dds is GPUPLL_CON1[21:0] */
-	if ((freq_khz >= POST_DIV_16_MIN_FREQ) &&
-		(freq_khz <= POST_DIV_4_MAX_FREQ)) {
+	if ((post_divider_power == POST_DIV2 &&
+	     __mt_gpufreq_use_post_div2(freq_khz)) ||
+	    (post_divider_power != POST_DIV2 &&
+	     freq_khz >= POST_DIV_16_MIN_FREQ && freq_khz <= POST_DIV_4_MAX_FREQ)) {
 		dds = (((freq_khz / TO_MHz_HEAD * (1 << post_divider_power))
 		<< DDS_SHIFT) / GPUPLL_FIN + ROUNDING_VALUE) / TO_MHz_TAIL;
 	} else {
@@ -1871,7 +1901,7 @@ static void __mt_gpufreq_calculate_power(unsigned int idx,
  * range is 375MHz - 900MHz, It can only use post divider 4, no post divider 2.
  */
 static enum g_post_divider_power_enum
-__mt_gpufreq_get_post_divider_power(unsigned int freq, unsigned int efuse)
+__mt_gpufreq_get_post_divider_power(unsigned int freq)
 {
 	/* [MT6765]
 	 *    VCO range: 1.5GHz - 3.8GHz by divider 1/2/4/8/16,
@@ -1885,17 +1915,13 @@ __mt_gpufreq_get_post_divider_power(unsigned int freq, unsigned int efuse)
 	 */
 	enum g_post_divider_power_enum post_divider_power = POST_DIV4;
 
-	if (freq < 375000)
+	if (__mt_gpufreq_use_post_div2(freq))
+		post_divider_power = POST_DIV2;
+	else if (freq < POST_DIV_4_MIN_FREQ)
 		post_divider_power = POST_DIV8;
 
-	if (g_cur_post_divider_power != post_divider_power) {
-		g_parking = true;
-		g_cur_post_divider_power = post_divider_power;
-	}
-
-	gpufreq_pr_debug(
-		"@%s: freq = %d, post_divider_power = %d, g_parking = %d\n",
-		__func__, freq, post_divider_power, g_parking);
+	gpufreq_pr_debug("@%s: freq = %d, post_divider_power = %d\n",
+		__func__, freq, post_divider_power);
 
 	return post_divider_power;
 }
