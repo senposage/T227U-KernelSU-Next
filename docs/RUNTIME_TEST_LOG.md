@@ -525,3 +525,15 @@ it was tested here.
   have not been established. If vsram_others stays at 900 mV and
   is the rail used by GPU SRAM, 900 mV VCORE would leave zero
   nominal headroom.
+
+### Build #37 at a 950 MHz ceiling
+
+- The user reported near stability at a 950 MHz ceiling and an
+  825 mV top VCORE target. Two of five paired regulator samples
+  measured 825 mV VCORE in gear 0 and 900 mV on vsram_others.
+  The other three measured 700 mV VCORE in gear 1 while
+  vsram_others stayed at 900 mV. The gear 0 samples establish a
+  75 mV measured difference between these two rails at that
+  operating point. They do not establish the GPU SRAM's minimum
+  required difference or verify that 950 MHz was active at the
+  instant of either voltage read.
