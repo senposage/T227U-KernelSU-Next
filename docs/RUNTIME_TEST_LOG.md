@@ -500,3 +500,13 @@ it was tested here.
   normalized table, which numbers the highest voltage as OPP 0.
   Its readout keeps showing the independent rail voltage and
   active gear even when the command layout cannot be verified.
+
+### Build #37 VCORE write confirmed under load
+
+- Build #37 booted and the user applied 812500 µV. The first
+  host check read programmed_uv=812500, live_uv=700000 and
+  active_gear=1. A later check with Asphalt in the foreground
+  read programmed_uv=812500, live_uv=812500 and active_gear=0.
+  This confirms both the firmware slot write and the PMIC
+  readback at top gear. No frequency stability claim follows
+  from this voltage sample.
