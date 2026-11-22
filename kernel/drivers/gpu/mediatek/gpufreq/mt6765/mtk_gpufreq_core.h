@@ -290,6 +290,7 @@ struct g_pmic_info {
 	struct regulator *reg_vgpu;
 	struct regulator *reg_vsram_gpu;
 	struct regulator *reg_vcore;
+	struct regulator *reg_vsram_others;
 	struct mtk_pm_qos_request mtk_pm_vgpu;
 };
 

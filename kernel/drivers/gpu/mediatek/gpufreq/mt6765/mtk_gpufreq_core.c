@@ -1054,6 +1054,20 @@ static int mt_gpufreq_power_dump_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/* Shared PMIC rails stay readable while the GPU power domain is off. */
+static int mt_gpufreq_read_rail(struct regulator *rail, int divisor)
+{
+	int uv;
+
+	if (IS_ERR(rail))
+		return PTR_ERR(rail);
+	if (!rail)
+		return -ENODEV;
+
+	uv = regulator_get_voltage(rail);
+	return uv < 0 ? uv : uv / divisor;
+}
+
 /*
  * PROCFS : show important variables for debugging
  */
@@ -1072,8 +1086,8 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 		g_cur_opp_freq, g_cur_opp_volt, g_cur_opp_vsram_volt);
 	seq_printf(m, "real freq = %d, real volt = %d, real vsram_volt = %d\n",
 			__mt_gpufreq_get_cur_freq(),
-			__mt_gpufreq_get_cur_volt(),
-			__mt_gpufreq_get_cur_vsram_volt());
+			mt_gpufreq_read_rail(g_pmic ? g_pmic->reg_vcore : NULL, 10),
+			mt_gpufreq_read_rail(g_pmic ? g_pmic->reg_vsram_others : NULL, 10));
 	seq_printf(m, "current vcore opp = %d\n", g_cur_vcore_opp);
 #ifdef CONFIG_COMMON_CLK_MT6765
 #ifdef CONFIG_MTK_GPU_SUPPORT
@@ -1426,9 +1440,9 @@ static int mt_gpufreq_oc_opp_voltage_proc_show(struct seq_file *m, void *v)
 	unsigned int i;
 
 	mutex_lock(&mt_gpufreq_lock);
-	seq_printf(m, "# max_mv=%u live_vcore_mv=%u\n",
+	seq_printf(m, "# max_mv=%u live_vcore_mv=%d\n",
 		MT6765_SEG3_GPU_OC_VOLT / 100,
-		__mt_gpufreq_get_cur_volt() / 100);
+		mt_gpufreq_read_rail(g_pmic ? g_pmic->reg_vcore : NULL, 1000));
 	for (i = 0; i < mt_gpufreq_oc_opp_count(); i++)
 		seq_printf(m, "%u %u %u\n", g_opp_table[i].gpufreq_khz,
 			g_opp_table[i].gpufreq_volt / 100,
@@ -2484,6 +2498,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	mtk_pm_qos_add_request(&g_pmic->mtk_pm_vgpu,
 	MTK_PM_QOS_VCORE_OPP, VCORE_OPP_0);
 
+	g_pmic->reg_vsram_others = devm_regulator_get_optional(&pdev->dev, "vsram_others");
 	g_pmic->reg_vcore = devm_regulator_get_optional(&pdev->dev, "vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
 		gpufreq_perr("@%s: cannot get VCORE\n", __func__);
