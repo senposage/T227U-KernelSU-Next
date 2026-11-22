@@ -284,7 +284,7 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 	bool already_held;
 	u32 uv, cmd;
-	int old_uv, programmed_uv, live_uv, ret;
+	int old_uv, programmed_uv, live_uv, levels, ret;
 
 	if (kstrtou32(buf, 10, &uv))
 		return -EINVAL;
@@ -318,7 +318,8 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 		goto out;
 	}
 
-	if (dvfsrc->force_opp_idx < mtk_dvfsrc_query_opp_info(MTK_DVFSRC_NUM_DVFS_OPP)) {
+	levels = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_NUM_DVFS_OPP);
+	if (levels <= 0 || dvfsrc->force_opp_idx < (u32)levels) {
 		ret = -EBUSY;
 		goto out;
 	}
@@ -335,7 +336,7 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 	}
 
 	ret = regulator_set_voltage(dvfsrc->vsram_test_power, uv, uv);
-	if (ret || regulator_get_voltage(dvfsrc->vsram_test_power) != uv) {
+	if (ret || regulator_get_voltage(dvfsrc->vsram_test_power) != (int)uv) {
 		if (regulator_get_voltage(dvfsrc->vsram_test_power) != old_uv)
 			regulator_set_voltage(dvfsrc->vsram_test_power, old_uv, old_uv);
 		if (regulator_get_voltage(dvfsrc->vsram_test_power) != old_uv) {
