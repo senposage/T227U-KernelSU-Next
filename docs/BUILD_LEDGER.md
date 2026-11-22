@@ -1065,3 +1065,49 @@ FM reception is outside the supported feature list for this device.
   with suffixes -build.log, -crc.log, -host.log, -imports.log,
   and -package.log. Build #39 supersedes #38 for further VCORE
   testing. Boot and voltages above 825 mV remain unverified.
+
+## 2026-11-22 guarded VSRAM test builds #40 and #41
+
+- Build #40 compiled source 78bfed6192abde607de31668714027b8ff4babac.
+  It added the guarded SRAM test and passed link and CRC gating.
+  The extracted host check identified two signed comparisons.
+  Build #41 fixed the comparisons and validates the reported
+  DVFS level count before it trusts the force-OPP state. Build
+  #40 was superseded before packaging. Logs use the prefix
+  /home/legit-su/t227u-20261122-vsram with -build.log and -crc.log.
+- Build #41 used source c6cc2c556e1bd1f742a87881018a20b1d5030d3d
+  on codex/t227u-kernel-bringup. Both commits cover the DVFSRC
+  v61 debug driver, probe and PM hooks, and their header. Used
+  the established /home/legit-su/t227u-public-repro-build, #26
+  command and config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+- The root-only file dvfsrc_vsram_test_uv under the helio-dvfsrc
+  path accepts 900000–950000 µV in 6250 µV steps. It reads the
+  MT6357 regulator directly and shows SRAM, VCORE, active gear,
+  and the VCORE floor state. It requests and verifies the 700 mV
+  VCORE floor before raising VSRAM. It refuses a transition if
+  the measured or programmed VCORE would leave less than 100 mV
+  of nominal headroom. While the floor is active, it blocks
+  suspend and forced DVFSRC OPPs. Both voltage controls remain
+  opt-in and the stock commands take effect at boot.
+- To restore, reset the top VCORE request to 800000 µV using KA
+  or write 0 to dvfsrc_top_vcore_uv. Allow gear changes until
+  the live VCORE reading is at or below 800000 µV. Then write 0
+  to dvfsrc_vsram_test_uv and confirm a 900000 µV readback with
+  floor_active=0. The driver retains the floor after a failed
+  SRAM rollback.
+- The extracted host harness passed bounds, floor-acquisition
+  failure, signed errors, both readbacks, coupled voltage limits,
+  suspend, reset ordering and rollback cases. Checkpatch, full
+  link, all 203 vendor CRCs and all seven connectivity module
+  import comparisons passed. Logs use the same prefix with
+  -host.log, -final-build.log, -final-crc.log, -imports.log and
+  -package.log suffixes.
+- CRC-patched image SHA-256
+  81ea3a78694f9dc474b6597db1bd837e8b8e6b896b949e58d3d0daa6f7904300.
+  E:\T227U-SR.zip SHA-256
+  7880b7869d09b05b95d10afc018146a0e3ca78c42ade3ce2c73c4b3926bb372a.
+  ZIP integrity and payload verification passed. A copy on the
+  tablet at /sdcard/Download/T227U-SR.zip matched that hash.
+  The tablet was running #38 when the copy was staged. Boot
+  and actual VSRAM writes still require device verification.
