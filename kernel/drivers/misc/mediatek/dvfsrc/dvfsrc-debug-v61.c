@@ -100,7 +100,7 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 #define TOP_VCORE_BASE_UV	518750
 #define TOP_VCORE_STEP_UV	6250
 #define TOP_VCORE_STOCK_UV	800000
-#define TOP_VCORE_MAX_UV	900000
+#define TOP_VCORE_MAX_UV	875000
 #define TOP_VCORE_CMD		0
 #define TOP_VCORE_PMIC_REG	((u32)MT6357_RG_BUCK_VCORE_VOSEL_ADDR << 16)
 #define TOP_VCORE_SELECTOR(uv)	(((uv) - TOP_VCORE_BASE_UV) / TOP_VCORE_STEP_UV)
