@@ -1111,3 +1111,31 @@ FM reception is outside the supported feature list for this device.
   tablet at /sdcard/Download/T227U-SR.zip matched that hash.
   The tablet was running #38 when the copy was staged. Boot
   and actual VSRAM writes still require device verification.
+
+## 2026-11-22 shared SRAM 75 mV gap build #42
+
+- Built kernel source 8ead3ff54fdc4e55ed2642d532184b60f62a2e50
+  on codex/t227u-kernel-bringup. The source diff is confined to
+  dvfsrc-debug-v61.c. The top VCORE override validates measured
+  VSRAM before any increase, including with the SRAM test inactive.
+  The absolute VCORE ceiling is 875 mV and the minimum gap for
+  VCORE and VSRAM writes is 75 mV. The published effective ceilings
+  are 825, 850, and 875 mV at 900, 925, and 950 mV SRAM. The SRAM
+  test keeps the 700 mV floor and suspend interlock. The rail
+  readback now includes its maximum voltage and minimum gap.
+- Reused the #26 build command, established toolchain and output
+  /home/legit-su/t227u-public-repro-build. Config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Host tests verified all three effective ceilings, rejected
+  requests with inadequate headroom or unreadable VSRAM, and
+  covered floor, readback, suspend, reset, and rollback handling.
+  Checkpatch passed, and the CRC gate validated all 203 exports
+  and seven separate vendor connectivity module import sets.
+- Logs under /home/legit-su/t227u-20261122-gap75 with -build.log,
+  -crc.log, -imports.log and -package.log suffixes. Image SHA-256
+  8de1da3013df31bb6ebe0db0ac98bbca22eae41ecff9417a8b53c28e36ea1d3b.
+  Local E:\T227U-75.zip SHA-256
+  f251c7071c16aeb29790e1577c14d4951b70048322be53c36cc1b3039a5a9ca1.
+  The verified tablet copy is /sdcard/Download/T227U-75.zip.
+  The tablet was still on #41 with the first VSRAM test active
+  when the ZIP was staged. Boot and live validation are pending.
