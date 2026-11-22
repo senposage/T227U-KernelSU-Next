@@ -823,3 +823,35 @@ FM reception is outside the supported feature list for this device.
   `/home/legit-su/t227u-20261121-msdc-default-off-object.log`.
   Object verification only. The running #30 tablet already has
   capture disabled through its runtime setting.
+
+## 2026-11-21 r9 build #31
+
+- Build ID `B-20261121-R9-31`. Built kernel source
+  `35f338bf4f6d0b8af065aab1407f2c0e65261d53` on
+  `codex/t227u-kernel-bringup`. Release
+  `4.19.191-28847731-abT227USQSCEYE2`, build #31.
+- Reused the #26 command, Clang 11.0.1, and the established
+  `/home/legit-su/t227u-public-repro-build` output directory.
+  The config hash remained
+  `ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99`.
+  The exact build input is tracked as `configs/t227u-r9.config` and
+  selected by the public build script.
+- Full link passed with the existing 14 section mismatch and three
+  duplicate vendor export warnings. The linked history generation is
+  zero-filled and the runtime command history control remains present.
+  The applied CRC gate verified all 203 mapped exports after applying
+  28 overrides. An independent import comparison matched all built-in
+  imports for seven vendor Wi-Fi, BT, connectivity, GPS, and FM modules.
+  Logs `/home/legit-su/t227u-20261121-r9-build.log`,
+  `/home/legit-su/t227u-20261121-r9-crc.log`, and
+  `/home/legit-su/t227u-20261121-r9-imports.log`.
+- Patched image SHA-256
+  `c5f5c189daa3ffffe1ecf11f048df33c352b3ccba56540a53c38ab61c7263ff8`.
+  Local release candidate `E:\\T227U-R9.zip` SHA-256
+  `946128ef597ea2a1e7f0d3cbd5645ca7705d4e20054e25e9f291cd0291d13ad8`.
+  The ZIP replaced the kernel and installer display string from #30.
+  The recovery payloads, DTB, and single Manager 33457 APK were
+  matched byte-for-byte. The standalone Manager and Kernel Adiutor
+  match the hashes of the corresponding published assets. The
+  trainer script was copied from the tagged source and its help
+  command completed.

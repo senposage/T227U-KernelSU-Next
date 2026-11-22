@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 kernel_dir="$repo_root/kernel"
-config="$repo_root/configs/t227u-r7.config"
+config="$repo_root/configs/t227u-r9.config"
 out_dir=${OUT_DIR:-"$kernel_dir/out-t227u"}
 toolchain_bin=${TOOLCHAIN_BIN:?Set TOOLCHAIN_BIN to the Android Clang r383902 bin directory}
 jobs=${JOBS:-"$(nproc)"}

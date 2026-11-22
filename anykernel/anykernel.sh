@@ -1,5 +1,5 @@
 properties() { '
-kernel.string=T227U KernelSU-Next r7 CPU stats + governor policy guard
+kernel.string=T227U KernelSU-Next r9
 do.devicecheck=1
 do.cleanup=1
 do.cleanuponabort=0

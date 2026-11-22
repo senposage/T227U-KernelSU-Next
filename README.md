@@ -41,15 +41,15 @@ OBJCOPY=/path/to/llvm-objcopy \
   out-t227u/arch/arm64/boot/Image.gz
 ```
 
-The gate requires all 197 mapped exports, with zero missing symbols and zero
+The gate requires all 203 mapped exports, with zero missing symbols and zero
 stale CRCs after patching. A build must not be released unless this passes,
 unless explicitly overridden.
 
 ## Build configuration
 
-`configs/t227u-r7.config` is the preserved working r7 configuration. Build
-from that configuration rather than regenerating a bare defconfig, so the
-working KernelSU and vendor compatibility selections are retained.
+`configs/t227u-r9.config` is the configuration used for r9. It includes the
+T227U FPSGO and utilization-clamp selections alongside the KernelSU and vendor
+compatibility selections.
 
 The complete KernelSU-Next legacy source used by this tree is kept at
 `kernel/KernelSU`; it is intentionally source-controlled rather than supplied
@@ -61,8 +61,8 @@ TOOLCHAIN_BIN=/path/to/android-clang-r383902/bin \
 ```
 
 This target requires Android Clang r383902 / 11.0.1 and its LLVM binutils.
-It creates a disposable `kernel/out-t227u/` directory, applies the preserved
-`gta7lite_00_defconfig` configuration, and pins the integrated
+It creates a disposable `kernel/out-t227u/` directory, initializes it with
+`gta7lite_00_defconfig`, applies the r9 configuration, and pins the integrated
 KernelSU-Next legacy source to driver version 33355
 (`legacy-susfs-manual@465490a2`).  It does not apply the vendor CRC override;
 run the mandatory gate above on the resulting `vmlinux` and `Image.gz` before
@@ -71,5 +71,6 @@ packaging or testing vendor Wi-Fi/Bluetooth modules.
 ## Kernel Adiutor
 
 The matching userspace controls live in the
-[KernelAdiutor-T227U](https://github.com/senposage/KernelAdiutor-T227U) fork.
-The flash ZIP contains KernelSU Manager, not Kernel Adiutor itself.
+[Kernel Adiutor T227U branch](https://github.com/senposage/KernelAdiutor/tree/codex/t227u-dvfs-policy).
+The flash ZIP includes KernelSU Manager. Install Kernel Adiutor from the
+separate APK.
