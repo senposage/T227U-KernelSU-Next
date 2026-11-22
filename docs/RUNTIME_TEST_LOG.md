@@ -600,3 +600,13 @@ it was tested here.
   VCORE at 800000 µV in gear 0, and the new SRAM control
   independently reported vsram_uv=900000, vcore_uv=800000
   and floor_active=0.
+
+### Build #41 first live VSRAM write
+
+- The user requested 925000 µV via the rail-test control. It
+  reported vsram_uv=925000, vcore_uv=700000, active_gear=1
+  and floor_active=1. The PMIC regulator class independently
+  read 925000 µV. Top VCORE remained programmed at 800000 µV
+  and the limit file advertised 825000 µV while the test was
+  active. The sampled gap was 225 mV. No matching rail-test
+  failure or VCORE checker line appeared in the kernel log.
