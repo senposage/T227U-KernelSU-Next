@@ -17,6 +17,7 @@ published on the [Releases](../../releases) page.
 - Segment-3 GPU OC OPPs at 700, 725, 750, 775, 800, and 825 MHz.
   The GPU starts at the stock 680 MHz ceiling. Higher bins are selectable
   through Kernel Adiutor and request the highest shared VCORE DVFS step.
+  Test build #34 adds 25 MHz steps from 850 MHz through 1 GHz.
 - CPU/GPU OC ceiling and voltage-control interfaces, including live rail
   readback for the GPU path.
 - PPM/hotplug policy guard: PPM remains a thermal/power safety envelope but

@@ -897,3 +897,44 @@ FM reception is outside the supported feature list for this device.
   only payload changes from the r9 candidate are the image and
   installer display string. The ZIP contains one Manager 33457 APK.
   Tablet boot, rail readback under load, and bin stability are pending.
+
+## GPU 1 GHz test build #34
+
+- Build #34 used kernel source 914fef7c89b202bc894601d8184c0b398b792761 on
+  codex/t227u-kernel-bringup. The exact diff is in
+  kernel/drivers/gpu/mediatek/gpufreq/mt6765/mtk_gpufreq_core.c and
+  mtk_gpufreq_core.h. The added Segment-3 bins are 850, 875, 900,
+  925, 950, 975, and 1000 MHz, with the existing shared VCORE
+  request. Startup and cap reset use the stock 680 MHz point.
+  The 975 and 1000 MHz bins program the experimental divide-by-two
+  path using the existing clock parking sequence. The VCO targets
+  are 1.95 and 2.0 GHz. All bins through 950 MHz use the established
+  divider. The legacy raw fixed-voltage clock control rejects new
+  above-950 MHz frequencies before writing the regulator.
+- Reused the #26 command, Clang 11.0.1, and
+  /home/legit-su/t227u-public-repro-build. The before and after
+  config SHA-256 matched
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Kernel release 4.19.191-28847731-abT227USQSCEYE2.
+- Checkpatch reported zero errors and warnings. Host harnesses
+  compiled the current driver functions and verified the stock
+  startup, requested caps, active cap reduction, thermal clamp,
+  voltage bounds, all seven PLL DDS values, parked clock writes,
+  the /4 to /2 transition and return to /4, and rejection of
+  invalid frequencies and non-Segment-3 /2 requests. The linked
+  kernel contains all 16 expected Segment-3 OPP rows.
+- Full link passed with the existing 14 section mismatch and
+  three duplicate vendor export warnings. The CRC gate corrected
+  28 values and verified all 203 exports with zero remaining
+  mismatches. A separate import check passed for seven vendor
+  Wi-Fi, BT, connectivity, GPS, and FM modules.
+- Logs in /home/legit-su with prefix t227u-20261121-gpu1000 and
+  suffixes -build.log, -crc.log, -policy.log, -pll.log, -linked.log,
+  and -package.log. CRC-patched image SHA-256
+  b1ee743f15d4bb51d45ee5729fdb6d348f368516177738258ef58c1f6a90c8cf.
+- Local E:\T227U-G1.zip SHA-256
+  19a818185a64181571446d3b6a12230705c47a2d9a1bb05764cd858b67a8eaf5.
+  Checked ZIP integrity, embedded image identity, recovery payload
+  modes, and the single Manager 33457 APK. The image and installer
+  display string are the only changed payloads from the r9 template.
+  Build #34 boot and GPU stability remain pending device testing.

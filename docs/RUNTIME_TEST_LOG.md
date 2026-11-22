@@ -455,3 +455,13 @@ it was tested here.
   does not check the regulator return code.
 - Read-only audit. There was no firmware, voltage or clock write,
   and no reading of the top gear under a sustained workload.
+
+### Build #33 at 825 MHz
+
+- The user reported that the tablet held the 825 MHz setting. An
+  ADB read showed build #33 on Segment 3 with the ceiling and
+  operating point at 825 MHz and measured clock at 824.992 MHz.
+  VCORE OPP 0 read back as 800 mV in both GPU and DVFSRC dumps,
+  versus the nominal GPU table entry of 825 mV. The GPU driver
+  reported VSRAM at 875 mV. No limit was active. This was a
+  point-in-time read with zero instantaneous GPU utilization.
