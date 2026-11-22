@@ -189,7 +189,10 @@ static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 
 out:
 	mutex_unlock(&top_vcore_lock);
-	return ret ? ret : count;
+	if (ret)
+		return ret;
+
+	return count;
 }
 
 DEVICE_ATTR_RW(dvfsrc_top_vcore_uv);
