@@ -1163,3 +1163,34 @@ FM reception is outside the supported feature list for this device.
   74e5f11696e2856727ef0191e3774e137444bee2f02c9341d6a5fab9f49e040d.
   ZIP integrity, embedded image and installer payload checks
   passed. Boot and live readback on build #43 are pending.
+
+## 2026-11-22 962.5 mV SRAM test build #44
+
+- Built f1e7cd295eb19e60189839e2ee1783de34d77bcf on
+  codex/t227u-kernel-bringup. The only kernel file changed was
+  kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c.
+  The closest MT6357 setting to 960 mV is 962.5 mV. The test
+  raises the floor to VCORE gear 0 before setting SRAM above
+  950 mV. It verifies gear and rail readback before the SRAM
+  write, and releases the stricter floor only after confirming
+  the lower SRAM value. The 75 mV minimum gap, 250 mV test
+  maximum gap, 875 mV absolute VCORE ceiling and suspend
+  interlock remain in effect. This is a runtime test.
+- Reused #26 build command and
+  /home/legit-su/t227u-public-repro-build with config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Checkpatch and the host harness passed. The harness verified
+  both new values, rejection of unaligned and out-of-range
+  values, floor transition ordering, failure to reach gear 0,
+  rollback, and restoration of the previous floor. The
+  203-entry CRC gate and all seven separate vendor import
+  checks passed. Logs under /home/legit-su use
+  t227u-20261122-sram962 with -build.log, -crc.log, -host.log,
+  -imports.log and -package.log suffixes.
+- Image SHA-256
+  777ab907f0f19bf03e09acd4b373d7e4e445b69abc4927223e92b9fd3effdfea.
+  E:\T227U-962.zip SHA-256
+  af64dca138705fb1ae767490687980ad7b93ea308965e9afa2b019aa04f94ea2.
+  ZIP integrity, embedded image, installer payload and the
+  tablet copy at /sdcard/Download/T227U-962.zip passed checks.
+  Boot and rail testing on #44 are pending.
