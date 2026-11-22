@@ -1039,3 +1039,29 @@ FM reception is outside the supported feature list for this device.
   passed integrity, embedded image and installer payload checks.
   Running #38, voltage above 825 mV and VCORE/SRAM headroom
   at those voltages remain unverified on hardware.
+
+## 2026-11-22 VCORE ceiling follow-up build #39
+
+- Built 46eac9a8c98604eb0c8ef119318c73313a9991d3 on
+  codex/t227u-kernel-bringup in the established
+  /home/legit-su/t227u-public-repro-build with the #26 command.
+  The one-line change in dvfsrc-debug-v61.c restricts the top
+  gear override and advertised ceiling to 875000 µV. Startup
+  still uses the firmware's stock 800000 µV command. The build
+  did not change the VSRAM setting.
+- Config SHA-256 before and after
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Checkpatch passed. The host harness verified every selector
+  from 45 through 57, rejection above 875000 µV, reset and
+  rollback. The link and all 203 mapped CRC checks passed,
+  including separate import comparisons for the seven vendor
+  connectivity modules.
+- CRC-patched image SHA-256
+  0dd3b367358fd68b223392463ca02cafefefae0ef9d655be1cda3ee470aba6b6.
+  Local E:\T227U-875.zip SHA-256
+  cd70fc5930dd204027508034c27baebc2296b79d8ce42e75e32c4cccd5a9d5d1.
+  ZIP integrity, embedded image and installer payload checks
+  passed. Logs under /home/legit-su use t227u-20261122-vcore875
+  with suffixes -build.log, -crc.log, -host.log, -imports.log,
+  and -package.log. Build #39 supersedes #38 for further VCORE
+  testing. Boot and voltages above 825 mV remain unverified.

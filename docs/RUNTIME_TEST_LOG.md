@@ -573,3 +573,21 @@ it was tested here.
 - References: [MT6765 reference schematic, sheet 4](https://raw.githubusercontent.com/bizoonydb/digital-board/main/RDM6-Schematic.pdf#page=4),
   [FCC-filed MT6765 power schematic](https://fccid.io/m/0e8258fe1a39385ee4d997f156589bd8e3373a6579d5f0d2d233125ce3231059.pdf#page=1),
   and [SM-T227U FCC exhibit list](https://fccid.io/ZCASMT227U).
+
+### VSRAM_OTHERS adjustment feasibility
+
+- The MT6357 regulator driver exposes a voltage selector for
+  ldo_vsram_others with 6.25 mV increments. Active and sleep
+  selector fields are distinct. The source also names a
+  tracking-status field. The presence of that field does not
+  demonstrate an active VCORE-to-VSRAM tracking mode on the T227U.
+  The established PMIC measurements showed 900 mV on this rail
+  while VCORE changed across gears. VSRAM_PROC is a separate LDO.
+- With VCORE at 875 mV, an SRAM rail of 975 mV would give a 100 mV
+  gap. At the lowest published awake VCORE gear of 650 mV, the
+  same fixed SRAM setting yields a 325 mV gap. That is below
+  the proposed 350 mV comparison limit but above the 250 mV
+  spread listed in this GPU driver. Voltage during suspend has
+  not been established. Any coupled implementation needs to
+  verify ordering, both rail readbacks, and every gear and
+  suspend transition. No VSRAM change was made.
