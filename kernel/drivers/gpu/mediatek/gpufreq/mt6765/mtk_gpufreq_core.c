@@ -155,9 +155,15 @@ static struct g_opp_table_info g_opp_table_segment3[] = {
 GPUOP(MT6765_SEG3_GPU_OC_FREQ0, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 0),
 GPUOP(MT6765_SEG3_GPU_OC_FREQ1, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 1),
 GPUOP(MT6765_SEG3_GPU_OC_FREQ2, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 2),
-GPUOP(SEG3_GPU_DVFS_FREQ0, SEG3_GPU_DVFS_VOLT0, SEG3_GPU_DVFS_VSRAM0, 3),
-GPUOP(SEG3_GPU_DVFS_FREQ1, SEG3_GPU_DVFS_VOLT1, SEG3_GPU_DVFS_VSRAM1, 4),
-GPUOP(SEG3_GPU_DVFS_FREQ2, SEG3_GPU_DVFS_VOLT2, SEG3_GPU_DVFS_VSRAM2, 5),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ3, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 3),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ4, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 4),
+GPUOP(MT6765_SEG3_GPU_OC_FREQ5, MT6765_SEG3_GPU_OC_VOLT, MT6765_SEG3_GPU_OC_VSRAM, 5),
+GPUOP(SEG3_GPU_DVFS_FREQ0, SEG3_GPU_DVFS_VOLT0, SEG3_GPU_DVFS_VSRAM0,
+	MT6765_SEG3_GPU_OC_OPP_COUNT + 0),
+GPUOP(SEG3_GPU_DVFS_FREQ1, SEG3_GPU_DVFS_VOLT1, SEG3_GPU_DVFS_VSRAM1,
+	MT6765_SEG3_GPU_OC_OPP_COUNT + 1),
+GPUOP(SEG3_GPU_DVFS_FREQ2, SEG3_GPU_DVFS_VOLT2, SEG3_GPU_DVFS_VSRAM2,
+	MT6765_SEG3_GPU_OC_OPP_COUNT + 2),
 };
 static struct g_opp_table_info g_opp_table_segment4[] = {
 GPUOP(SEG4_GPU_DVFS_FREQ0, SEG4_GPU_DVFS_VOLT0, SEG4_GPU_DVFS_VSRAM0, 0),
@@ -251,6 +257,13 @@ phys_addr_t gpu_fdvfs_virt_addr; /* for GED, legacy ?! */
  * ===============================================
  */
 
+static unsigned int mt_gpufreq_oc_opp_count(void)
+{
+	if (g_segment_id == MT6765_SEGMENT)
+		return MT6765_SEG3_GPU_OC_OPP_COUNT;
+	return 0;
+}
+
 /*
  * API : handle frequency change request
  */
@@ -341,7 +354,8 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 	 * Keep this after every legacy override so fixed/keep-frequency proc
 	 * commands cannot silently bypass the safety cap.
 	 */
-	if (g_oc_max_idx && target_freq > g_opp_table[g_oc_max_idx].gpufreq_khz) {
+	if ((g_oc_max_idx || g_segment_id == MT6765_SEGMENT) &&
+	    target_freq > g_opp_table[g_oc_max_idx].gpufreq_khz) {
 		target_freq = g_opp_table[g_oc_max_idx].gpufreq_khz;
 		target_volt = g_opp_table[g_oc_max_idx].gpufreq_volt;
 		target_idx = g_opp_table[g_oc_max_idx].gpufreq_idx;
@@ -1362,7 +1376,7 @@ static ssize_t mt_gpufreq_oc_max_freq_proc_write(struct file *file,
 	char buf[32];
 	unsigned int freq;
 	unsigned int i;
-	unsigned int target_idx = MT6765_SEG3_GPU_OC_OPP_COUNT;
+	unsigned int target_idx;
 	bool lower_current = false;
 
 	if (count >= sizeof(buf) || copy_from_user(buf, buffer, count))
@@ -1373,7 +1387,7 @@ static ssize_t mt_gpufreq_oc_max_freq_proc_write(struct file *file,
 
 	mutex_lock(&mt_gpufreq_lock);
 	if (freq == 0) {
-		target_idx = MT6765_SEG3_GPU_OC_OPP_COUNT;
+		target_idx = mt_gpufreq_oc_opp_count();
 	} else {
 		for (i = 0; i < g_opp_idx_num; i++) {
 			if (g_opp_table[i].gpufreq_khz == freq) {
@@ -1408,7 +1422,7 @@ static int mt_gpufreq_oc_opp_voltage_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "# max_mv=%u live_vcore_mv=%u\n",
 		MT6765_SEG3_GPU_OC_VOLT / 100,
 		__mt_gpufreq_get_cur_volt() / 100);
-	for (i = 0; i < MT6765_SEG3_GPU_OC_OPP_COUNT; i++)
+	for (i = 0; i < mt_gpufreq_oc_opp_count(); i++)
 		seq_printf(m, "%u %u %u\n", g_opp_table[i].gpufreq_khz,
 			g_opp_table[i].gpufreq_volt / 100,
 			g_opp_table_default[i].gpufreq_volt / 100);
@@ -1421,7 +1435,7 @@ static ssize_t mt_gpufreq_oc_opp_voltage_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *data)
 {
 	char buf[32];
-	unsigned int freq, mv, i;
+	unsigned int freq, mv, i, oc_count;
 
 	if (count >= sizeof(buf) || copy_from_user(buf, buffer, count))
 		return -EINVAL;
@@ -1430,10 +1444,11 @@ static ssize_t mt_gpufreq_oc_opp_voltage_proc_write(struct file *file,
 		return -EINVAL;
 
 	mutex_lock(&mt_gpufreq_lock);
-	for (i = 0; i < MT6765_SEG3_GPU_OC_OPP_COUNT; i++)
+	oc_count = mt_gpufreq_oc_opp_count();
+	for (i = 0; i < oc_count; i++)
 		if (g_opp_table[i].gpufreq_khz == freq)
 			break;
-	if (i == MT6765_SEG3_GPU_OC_OPP_COUNT ||
+	if (i == oc_count ||
 		(mv && (mv < 700 || mv > MT6765_SEG3_GPU_OC_VOLT / 100))) {
 		mutex_unlock(&mt_gpufreq_lock);
 		return -EINVAL;
@@ -2268,8 +2283,8 @@ static void __mt_gpufreq_set_initial(void)
 
 	mutex_lock(&mt_gpufreq_lock);
 
-	/* default OPP index */
-	g_cur_opp_cond_idx = 0;
+	/* Start at the stock ceiling before userspace applies its policy. */
+	g_cur_opp_cond_idx = g_oc_max_idx;
 
 	/* set POST_DIVIDER initial value */
 	g_cur_post_divider_power = POST_DIV4;
@@ -2466,7 +2481,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	} else if (g_segment_id == MT6765_SEGMENT) {
 		__mt_gpufreq_setup_opp_table(g_opp_table_segment3,
 			ARRAY_SIZE(g_opp_table_segment3));
-		g_fixed_vsram_volt_idx = 2;
+		g_fixed_vsram_volt_idx = ARRAY_SIZE(g_opp_table_segment3) - 1;
 	} else if (g_segment_id == MT6765T_SEGMENT) {
 		__mt_gpufreq_setup_opp_table(g_opp_table_segment4,
 			ARRAY_SIZE(g_opp_table_segment4));
@@ -2478,8 +2493,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	}
 
 	/* Segment-3 OC entries precede the stock 680 MHz OPP. */
-	if (g_segment_id == MT6765_SEGMENT)
-		g_oc_max_idx = MT6765_SEG3_GPU_OC_OPP_COUNT;
+	g_oc_max_idx = mt_gpufreq_oc_opp_count();
 
 	/*
 	 * gpufreq_pr_info("@%s: VGPU is enabled = %d (%d mV),"

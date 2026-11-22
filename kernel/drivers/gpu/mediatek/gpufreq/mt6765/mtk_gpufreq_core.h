@@ -50,10 +50,13 @@
  * starts capped at SEG3's stock 680 MHz point; userspace must lift the cap.
  * VCORE OPP mapping supplies the physical voltage for all values above 700mV.
  */
-#define MT6765_SEG3_GPU_OC_OPP_COUNT		(3)
-#define MT6765_SEG3_GPU_OC_FREQ0		(750000)	/* KHz */
-#define MT6765_SEG3_GPU_OC_FREQ1		(725000)	/* KHz */
-#define MT6765_SEG3_GPU_OC_FREQ2		(700000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_OPP_COUNT		(6)
+#define MT6765_SEG3_GPU_OC_FREQ0		(825000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_FREQ1		(800000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_FREQ2		(775000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_FREQ3		(750000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_FREQ4		(725000)	/* KHz */
+#define MT6765_SEG3_GPU_OC_FREQ5		(700000)	/* KHz */
 #define MT6765_SEG3_GPU_OC_VOLT		(82500)		/* mV x 100 */
 #define MT6765_SEG3_GPU_OC_VSRAM		(87500)		/* mV x 100 */
 
