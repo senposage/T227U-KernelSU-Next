@@ -198,6 +198,61 @@ static int dvfsrc_top_vcore_limit(struct mtk_dvfsrc *dvfsrc)
 	return min(vsram_uv - VSRAM_TEST_HEADROOM_UV, TOP_VCORE_MAX_UV);
 }
 
+/* The SPM slot is consumed on gear changes. Refresh an already held gear. */
+static int dvfsrc_refresh_top_vcore(struct mtk_dvfsrc *dvfsrc, int uv)
+{
+	struct mtk_pm_qos_request hold = {};
+	struct regulator *rail;
+	int sram_uv, old_uv, live_uv, ret;
+
+	if (!mtk_pm_qos_request_active(&vsram_test_floor) ||
+	    mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP) != VCORE_OPP_0 ||
+	    regulator_get_voltage(dvfsrc->vcore_power) == uv)
+		return 0;
+
+	if (!dvfsrc->vsram_test_power)
+		return -ENODEV;
+
+	mtk_pm_qos_add_request(&hold, MTK_PM_QOS_VCORE_OPP, VCORE_OPP_0);
+	sram_uv = regulator_get_voltage(dvfsrc->vsram_test_power);
+	old_uv = regulator_get_voltage(dvfsrc->vcore_power);
+	if (mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP) != VCORE_OPP_0 ||
+	    sram_uv < uv + VSRAM_TEST_HEADROOM_UV ||
+	    sram_uv < old_uv + VSRAM_TEST_HEADROOM_UV ||
+	    sram_uv > uv + VSRAM_TEST_MAX_GAP_UV ||
+	    sram_uv > old_uv + VSRAM_TEST_MAX_GAP_UV) {
+		ret = -EAGAIN;
+		goto out;
+	}
+	if (old_uv == uv) {
+		ret = 0;
+		goto out;
+	}
+
+	/* Drop the consumer vote after this write. SPM still owns DVFS. */
+	rail = regulator_get_optional(dvfsrc->dev, "vcore");
+	if (IS_ERR(rail)) {
+		ret = PTR_ERR(rail);
+		goto out;
+	}
+
+	ret = regulator_set_voltage(rail, uv, uv);
+	live_uv = regulator_get_voltage(rail);
+	if (ret || live_uv != uv) {
+		if (live_uv != old_uv &&
+		    (regulator_set_voltage(rail, old_uv, old_uv) ||
+		     regulator_get_voltage(rail) != old_uv))
+			dev_err(dvfsrc->dev, "could not restore live VCORE %d uV\n", old_uv);
+		if (!ret)
+			ret = -EIO;
+	}
+	regulator_put(rail);
+
+out:
+	mtk_pm_qos_remove_request(&hold);
+	return ret;
+}
+
 static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -225,21 +280,26 @@ static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 		ret = -ERANGE;
 		goto out;
 	}
-	if (old_cmd == (TOP_VCORE_PMIC_REG | selector))
-		goto out;
-
-	status = mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, selector);
-	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &new_cmd);
-	if (status || ret || new_cmd != (TOP_VCORE_PMIC_REG | selector)) {
-		if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd) {
-			mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, old_cmd & 0x7f);
-			if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd)
-				dev_err(dev, "failed to restore VCORE command slot 0\n");
+	if (old_cmd != (TOP_VCORE_PMIC_REG | selector)) {
+		status = mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, selector);
+		ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &new_cmd);
+		if (status || ret || new_cmd != (TOP_VCORE_PMIC_REG | selector)) {
+			dev_warn(dev, "top VCORE update failed, firmware status %ld\n", status);
+			ret = status == SIP_SVC_E_NOT_SUPPORTED ? -EOPNOTSUPP : -EIO;
+			goto restore_cmd;
 		}
-		dev_warn(dev, "top VCORE update failed, firmware status %ld\n", status);
-		ret = status == SIP_SVC_E_NOT_SUPPORTED ? -EOPNOTSUPP : -EIO;
 	}
 
+	ret = dvfsrc_refresh_top_vcore(dvfsrc, uv);
+	if (!ret)
+		goto out;
+
+restore_cmd:
+	if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd) {
+		mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, old_cmd & 0x7f);
+		if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd)
+			dev_err(dev, "failed to restore VCORE command slot 0\n");
+	}
 out:
 	mutex_unlock(&top_vcore_lock);
 	if (ret)
