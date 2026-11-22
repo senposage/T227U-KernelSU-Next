@@ -14,8 +14,9 @@ published on the [Releases](../../releases) page.
 - CPU OC OPPs, opt-in through Kernel Adiutor:
   - performance cluster: 2550 and 2600 MHz;
   - efficiency cluster: 1900, 2000, 2100, 2200, and 2300 MHz.
-- GPU OC OPPs: 700, 725, and 750 MHz. The OC ceiling defaults to the stock
-  Segment-3 OPP; userspace must explicitly raise it.
+- Segment-3 GPU OC OPPs at 700, 725, 750, 775, 800, and 825 MHz.
+  The GPU starts at the stock 680 MHz ceiling. Higher bins are selectable
+  through Kernel Adiutor and request the highest shared VCORE DVFS step.
 - CPU/GPU OC ceiling and voltage-control interfaces, including live rail
   readback for the GPU path.
 - PPM/hotplug policy guard: PPM remains a thermal/power safety envelope but

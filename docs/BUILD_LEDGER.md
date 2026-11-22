@@ -855,3 +855,45 @@ FM reception is outside the supported feature list for this device.
   match the hashes of the corresponding published assets. The
   trainer script was copied from the tagged source and its help
   command completed.
+
+## GPU OC test builds #32 and #33
+
+- Build #32 compiled the first 775, 800, and 825 MHz table revision
+  on base ae95d6ebb. Link and the 203-entry CRC gate passed. The
+  cap condition in that revision would have disabled explicit
+  lower caps on other GPU segments. Build #33 superseded it before
+  packaging. The #32-only change was the use of
+  g_segment_id == MT6765_SEGMENT alone in the target cap condition.
+  Logs /home/legit-su/t227u-20261121-gpu825-build.log and
+  /home/legit-su/t227u-20261121-gpu825-crc.log.
+- Build #33 used source 83b5e4e1df5d87de0fdc829bd51026eb48786da0
+  on codex/t227u-kernel-bringup. The complete diff covers
+  kernel/drivers/gpu/mediatek/gpufreq/mt6765/mtk_gpufreq_core.c and
+  mtk_gpufreq_core.h. The added bins request nominal 825 mV through
+  the existing VCORE QoS mapping. Segment 3 starts at its 680 MHz
+  stock OPP and returns to 680 MHz when resetting the OC ceiling.
+- Both builds used the #26 command, Clang 11.0.1, the established
+  /home/legit-su/t227u-public-repro-build output directory, and
+  config SHA-256
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Kernel release 4.19.191-28847731-abT227USQSCEYE2.
+- Checkpatch reported zero errors and warnings. A host harness
+  compiled the driver policy functions and checked startup at 680,
+  all three cap writes, applying a lower cap while active, thermal
+  clamp behavior, voltage bounds and reset, and lower caps on other
+  segments. Verified the nine linked Segment-3 OPP rows and CRC
+  imports for the seven Wi-Fi, BT, connectivity, GPS and FM modules.
+- Build #33 linked with the baseline 14 section mismatches and three
+  duplicate vendor export warnings. The CRC gate applied the 28
+  required overrides and verified all 203 mapped exports with zero
+  remaining mismatches. Logs under /home/legit-su use prefix
+  t227u-20261121-gpu825 with suffixes -final-build.log,
+  -final-crc.log, -policy.log, -linked.log, and -package.log.
+- CRC-patched Image.gz SHA-256
+  8a1b9c37ac9edcdd8cb4e76fdcffdf9b656c2f7ebf7d4748e152de57396b1661.
+  The local test ZIP E:\T227U-GPU.zip SHA-256
+  c9d1cccdff3f1604d8ac9ce8d9daa501db633d6c1d14795011dfa4b52fcfc1da
+  passed ZIP integrity checks and embedded image comparison. The
+  only payload changes from the r9 candidate are the image and
+  installer display string. The ZIP contains one Manager 33457 APK.
+  Tablet boot, rail readback under load, and bin stability are pending.
