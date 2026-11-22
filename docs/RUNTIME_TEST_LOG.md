@@ -591,3 +591,12 @@ it was tested here.
   not been established. Any coupled implementation needs to
   verify ordering, both rail readbacks, and every gear and
   suspend transition. No VSRAM change was made.
+
+### Build #41 first boot
+
+- ADB confirmed build #41 reached Android boot completion.
+  The top VCORE ceiling reported 875000 µV. Before any
+  test write, the DVS readback reported programmed and live
+  VCORE at 800000 µV in gear 0, and the new SRAM control
+  independently reported vsram_uv=900000, vcore_uv=800000
+  and floor_active=0.
