@@ -338,3 +338,52 @@ it was tested here.
   afterward per the user's preference. The original block I/O
   accounting state was restored. Local log and harness
   `/home/legit-su/t227u-raw-io-20261121.UwKFSV`.
+
+## 2026-11-21 eMMC scheduler and writeback tuning
+
+- The SM-T227U ran build #30 with all eight CPUs online and ComboA
+  command history off. The starting queue settings were
+  `mq-deadline`, a writeback throttling target of 2,000 µs,
+  128 requests, and 128 KiB readahead.
+- Nine interleaved scheduler trials used a 192 MiB F2FS scratch
+  file. Each ran 4,096 direct 4 KiB random reads and 1,024 direct
+  128 KiB sequential reads through allocated userdata extents.
+  The mixed test repeated the random reads while a background
+  scratch-file writer flushed each 1 MiB of data. eMMC sector
+  counters confirmed the I/O, and the raw partition was read-only.
+
+| Scheduler | Random 4 KiB alone, MiB/s | Sequential alone, MiB/s | Mixed random p99, ms |
+| --- | ---: | ---: | ---: |
+| mq-deadline | 29.30 | 196.70 | 7.66 |
+| Kyber | 28.19 | 204.17 | 7.69 |
+| none | 31.20 | 215.43 | 12.02 |
+
+- The latency-focused comparison brought `mq-deadline` forward
+  into nine interleaved writeback-target trials.
+
+| Writeback target | Mixed read throughput, MiB/s | Read p95, ms | Read p99, ms | Writer, MiB/s |
+| --- | ---: | ---: | ---: | ---: |
+| 1,000 µs | 3.67 | 7.14 | 7.35 | 61.99 |
+| 2,000 µs | 3.42 | 6.67 | 8.16 | 63.23 |
+| 4,000 µs | 3.46 | 8.06 | 8.29 | 61.30 |
+
+- Values are medians of per-trial summaries. Setup, reads, and
+  write contention used disposable files. Local harness and
+  per-trial data are at `/home/legit-su/t227u-io-tune.qJYDWZ`.
+- A repeated 2,000/1,000/1,000/2,000 µs comparison did not
+  reproduce the first-pass p99 gain. The two-trial median
+  p99 was 8.82 ms at 2,000 µs and 11.97 ms at 1,000 µs.
+  The 2,000 µs setting also had higher read and write throughput
+  on the repeat, so it remained the writeback target.
+- Tested `mq-deadline` batch sizes 0 and 4 in six interleaved
+  mixed trials using 2,048 direct reads each. At batch 4, reads
+  reached 3.84 MiB/s and p99 was 7.63 ms. At batch 0, reads
+  reached 3.06 MiB/s and p99 was 8.31 ms. The three batch-4
+  p99 values were 7.63, 7.66, and 7.63 ms, below all three
+  batch-0 results. Writer throughput rose from 59.81 to 64.19
+  MiB/s.
+- Applied `mq-deadline` with `fifo_batch=4` and
+  `wbt_lat_usec=2000` for the current boot. ADB readback after
+  a dwell confirmed both values. The tablet kept 128 requests,
+  128 KiB readahead, eMMC command history off, and CPUs 0–7
+  online. The kernel log showed no matching MMC or F2FS errors.
