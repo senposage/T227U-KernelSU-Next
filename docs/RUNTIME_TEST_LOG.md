@@ -610,3 +610,18 @@ it was tested here.
   and the limit file advertised 825000 µV while the test was
   active. The sampled gap was 225 mV. No matching rail-test
   failure or VCORE checker line appeared in the kernel log.
+
+### GPU voltage readout returning zero on build #41
+
+- A 36-sample capture at the user's 843.75 mV top VCORE and
+  950 mV VSRAM settings found 19 zero values in the legacy
+  GPU dump. The independently read MT6357 VCORE selectors
+  were 700 or 843.75 mV and VSRAM remained 950 mV. Neither
+  regulator read zero. The GPU routine returns zero when its
+  GPU power flag is clear, independent of shared VCORE.
+  The flag printed later in the dump can change between
+  those two reads during GPU gating.
+- The legacy GPU dump also kept reporting a fixed 875 mV
+  VSRAM during the capture. Logs are at
+  /home/legit-su/t227u-20261122-rail-zero-samples.log.
+  No voltage or clock change was made during capture.

@@ -1139,3 +1139,27 @@ FM reception is outside the supported feature list for this device.
   The verified tablet copy is /sdcard/Download/T227U-75.zip.
   The tablet was still on #41 with the first VSRAM test active
   when the ZIP was staged. Boot and live validation are pending.
+
+## 2026-11-22 live GPU rail readback build #43
+
+- Built kernel source 8d858617f878b0361337c043ecf7f3bf752de13a
+  on codex/t227u-kernel-bringup. The diff changes the vcore and
+  VSRAM fields in the MT6765 GPU diagnostics to read the shared
+  physical rails. Regulator read errors remain signed. The
+  GPU's internal DVFS helpers and build #42 rail guard remain
+  intact. Reused the #26 command and
+  /home/legit-su/t227u-public-repro-build with unchanged config
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+- Checkpatch and the host diagnostic harness passed. The
+  harness covered each rail, both unit conversions, missing
+  regulator handles, and signed regulator errors. The 203-entry
+  CRC gate and all seven separate vendor connectivity import
+  checks passed. Log prefix /home/legit-su/t227u-20261122-rails
+  with -build.log, -crc.log, -host.log, -imports.log and
+  -package.log suffixes.
+- Image SHA-256
+  003862d325ed6d618e4236f009a2921a5a3aadcafea554eb3e3fcdb455c082c3.
+  E:\T227U-RL.zip SHA-256
+  74e5f11696e2856727ef0191e3774e137444bee2f02c9341d6a5fab9f49e040d.
+  ZIP integrity, embedded image and installer payload checks
+  passed. Boot and live readback on build #43 are pending.
