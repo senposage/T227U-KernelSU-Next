@@ -275,7 +275,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dvfsrc);
 #ifdef CONFIG_MACH_MT6765
 	if (of_device_is_compatible(np, "mediatek,mt6765-dvfsrc-debug") &&
-	    device_create_file(dev, &dev_attr_dvfsrc_top_vcore_uv))
+	    sysfs_create_group(&dev->kobj, &dvfsrc_top_vcore_group))
 		dev_warn(dev, "cannot register top VCORE test control\n");
 #endif
 
@@ -299,7 +299,7 @@ static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_MACH_MT6765
 	if (of_device_is_compatible(dev->of_node, "mediatek,mt6765-dvfsrc-debug"))
-		device_remove_file(dev, &dev_attr_dvfsrc_top_vcore_uv);
+		sysfs_remove_group(&dev->kobj, &dvfsrc_top_vcore_group);
 #endif
 	unregister_dvfsrc_vchk_notifier(&dvfsrc->dvfsrc_vchk_notifier);
 	dvfsrc_unregister_sysfs(dev);

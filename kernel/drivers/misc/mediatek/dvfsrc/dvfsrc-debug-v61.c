@@ -100,7 +100,7 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 #define TOP_VCORE_BASE_UV	518750
 #define TOP_VCORE_STEP_UV	6250
 #define TOP_VCORE_STOCK_UV	800000
-#define TOP_VCORE_MAX_UV	825000
+#define TOP_VCORE_MAX_UV	900000
 #define TOP_VCORE_CMD		0
 #define TOP_VCORE_PMIC_REG	((u32)MT6357_RG_BUCK_VCORE_VOSEL_ADDR << 16)
 #define TOP_VCORE_SELECTOR(uv)	(((uv) - TOP_VCORE_BASE_UV) / TOP_VCORE_STEP_UV)
@@ -202,7 +202,24 @@ out:
 	return count;
 }
 
-DEVICE_ATTR_RW(dvfsrc_top_vcore_uv);
+static ssize_t dvfsrc_top_vcore_max_uv_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", TOP_VCORE_MAX_UV);
+}
+
+static DEVICE_ATTR_RW(dvfsrc_top_vcore_uv);
+static DEVICE_ATTR_RO(dvfsrc_top_vcore_max_uv);
+
+static struct attribute *dvfsrc_top_vcore_attrs[] = {
+	&dev_attr_dvfsrc_top_vcore_uv.attr,
+	&dev_attr_dvfsrc_top_vcore_max_uv.attr,
+	NULL,
+};
+
+const struct attribute_group dvfsrc_top_vcore_group = {
+	.attrs = dvfsrc_top_vcore_attrs,
+};
 #endif /* CONFIG_MACH_MT6765 */
 
 #if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
