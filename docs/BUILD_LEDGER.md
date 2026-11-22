@@ -1011,3 +1011,31 @@ FM reception is outside the supported feature list for this device.
   4c756d4b1270c4ae1a4c8014a6381d7107911b4924985de35912a18a8ea05f58
   passed integrity, embedded image and installer payload checks.
   Boot and live write acceptance remain pending.
+
+## 2026-11-22 experimental 900 mV VCORE ceiling build #38
+
+- Built c99b674b6051f168de5798aa90793e46d088df7e on
+  codex/t227u-kernel-bringup in the established
+  /home/legit-su/t227u-public-repro-build with the #26 command.
+  Config SHA-256 before and after
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+- The complete diff changes the DVFSRC debug driver and its
+  header. Its experimental ceiling is 900000 µV and it advertises
+  the limit separately through dvfsrc_top_vcore_max_uv. The
+  existing command/readback format is unchanged. Firmware startup
+  retains the stock 800000 µV top gear. Setting a new voltage is
+  manual and remains volatile.
+- Checkpatch passed. The host harness verified every selector
+  from 45 through 61, rejection above 900000 µV, restore on
+  mismatch, stock reset, and rejected firmware writes. All 203
+  mapped vendor CRCs and all seven separate vendor import checks
+  passed. The four baseline link warnings were present.
+- Logs under /home/legit-su use t227u-20261122-vcore900 with
+  -build.log, -crc.log, -host.log, -imports.log, and -package.log.
+  CRC-patched image SHA-256
+  d90d33f93f5a641766c1e47517e437ec8f815decbf7598983e2ecaf04a41559a.
+  Local E:\T227U-900.zip SHA-256
+  0234541066433ea7bba59ef30f0f79ecc705f3473e821f33793c70dfac88b4b2
+  passed integrity, embedded image and installer payload checks.
+  Running #38, voltage above 825 mV and VCORE/SRAM headroom
+  at those voltages remain unverified on hardware.

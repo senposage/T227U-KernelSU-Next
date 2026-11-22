@@ -510,3 +510,18 @@ it was tested here.
   This confirms both the firmware slot write and the PMIC
   readback at top gear. No frequency stability claim follows
   from this voltage sample.
+
+### MT6357 SRAM rail readback
+
+- On running build #37, the MT6357 regulator sysfs reported
+  vsram_others at 900000 µV while VCORE was in gear 1 at
+  700000 µV. The GPU's separate 875 mV VSRAM readout comes from a
+  constant in __mt_gpufreq_get_cur_vsram_volt. The MT6765 GPU
+  header defines a nominal 100 mV buck variation minimum, but this
+  driver does not use it to check the GPU VCORE transition or the
+  shared-rail SPM command. The tested 812.5 mV VCORE value was
+  read in an earlier, separate sample. A simultaneous high-load
+  VCORE/SRAM margin and the board's actual minimum differential
+  have not been established. If vsram_others stays at 900 mV and
+  is the rail used by GPU SRAM, 900 mV VCORE would leave zero
+  nominal headroom.
