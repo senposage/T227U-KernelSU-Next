@@ -537,3 +537,39 @@ it was tested here.
   operating point. They do not establish the GPU SRAM's minimum
   required difference or verify that 950 MHz was active at the
   instant of either voltage read.
+
+### SM-T227U GPU logic and SRAM rail trace
+
+- The live build #37 device tree maps /gpufreq/vcore-supply to
+  phandle 0x37, the MT6357 buck_vcore. The modem driver's
+  _vcore-supply also points at 0x37. GPU OPPs request a gear on
+  this shared buck through MTK PM QoS. The experimental control
+  changes SPM slot zero for the MT6357 VCORE selector at 0x152a.
+  The GPU node has no software SRAM regulator binding and the
+  override does not write an SRAM selector.
+- The distinct MT6357 ldo_vsram_others uses phandle 0x90.
+  The MT6765 reference drawing and an FCC-filed MT6765 phone
+  schematic route VSRAM_OTHERS_PMU to the DVDD_MFG_SRAM pin.
+  This is strong corroboration of the GPU SRAM rail. The
+  T227U FCC exhibit lists its board schematic as confidential
+  and exposes metadata only. The tablet-specific physical
+  connection remains inferred.
+- The PMIC driver reads each live voltage selector from its
+  DA_VOSEL register. The sysfs number is the selected setting
+  in microvolts. It is not an analog waveform or a measurement
+  of droop or transient overshoot. The 875 mV GPU debug VSRAM
+  value is hard-coded. The regulator readings for vsram_others
+  stayed at 900 mV in the sampled VCORE gears, including the
+  earlier 825 mV gear 0 test.
+- The GPU source defines a 100 mV minimum variation but never
+  uses that constant to check a transition. The springboard
+  helper references only the 250 mV maximum, and the override
+  does not enforce a VCORE-to-SRAM differential. With a 900 mV
+  SRAM setting, 800 mV VCORE gives a nominal 100 mV gap, 825 mV
+  gives 75 mV, and 900 mV gives zero. The #38 software maximum
+  is not a qualified operating point. Hold the upper end of
+  that experiment pending validation of SRAM headroom. No
+  voltage or clock change was made during this trace.
+- References: [MT6765 reference schematic, sheet 4](https://raw.githubusercontent.com/bizoonydb/digital-board/main/RDM6-Schematic.pdf#page=4),
+  [FCC-filed MT6765 power schematic](https://fccid.io/m/0e8258fe1a39385ee4d997f156589bd8e3373a6579d5f0d2d233125ce3231059.pdf#page=1),
+  and [SM-T227U FCC exhibit list](https://fccid.io/ZCASMT227U).
