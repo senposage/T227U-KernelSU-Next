@@ -1327,3 +1327,8 @@ FM reception is outside the supported feature list for this device.
   c6d4bc583cf2bee7ea046e546b33fa3bfc220496fe5d7e74a3704f9298b19e03.
   The installer carries one Manager APK. Ramdisk handling is
   inherited from the r9 installer. Device status is **untested**.
+
+- Device result on 2026-11-27 is **booted**. KA 268 restored
+  the requested 1,000 mV SRAM, 900 mV VCORE and 1,000 MHz
+  ceiling. Screen-off idle reached gear 3 without a floor
+  vote. Deep-suspend validation remains pending.

@@ -658,3 +658,20 @@ it was tested here.
   900 mV VSRAM, 800 mV programmed VCORE, and no SRAM vote.
   Ordered boot restore with elevated SRAM and #49 remain
   pending hardware validation.
+
+### Build #49 boot restore and screen-off observation
+
+- On 2026-11-27 at 15:59 EST, KA 268 boot replay on the
+  SM-T227U wrote 1,000 mV Shared VSRAM, 900 mV top VCORE,
+  then the 1,000 MHz GPU ceiling. The kernel acknowledged
+  both writes and read 900 mV live in gear 0. The SRAM floor
+  flag was clear.
+- After the user turned off the display, Android reported
+  Dozing. DVFS reached gear 3 at 650 mV live VCORE while
+  VSRAM was still 1,000 mV, the top slot stayed programmed at
+  900 mV, and the clock ceiling stayed at 1,000 MHz. This
+  confirms low-gear switching without a persistent SRAM vote.
+- The suspend service and kernel both reported zero attempts
+  and no failure. The screen-off observation did not exercise
+  the DVFSRC system-suspend callback. Captured logs are at
+  /home/legit-su/t227u-20261127-dvfs-rails-device.log.
