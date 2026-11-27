@@ -1430,3 +1430,10 @@ FM reception is outside the supported feature list for this device.
   845cceccba655b8b970b8113cb08d021341f634ff417d219e45318ff3ee063b7.
   r9 installer and ramdisk handling preserved. ZIP checks found one
   Manager APK. Device status: **untested**.
+
+- Device result for #52 on 2026-11-27 is **booted**. The user
+  canceled Apply on Boot. KA 270 removed one legacy GPU per-bin
+  entry while retaining the 1,000 mV / 900 mV pair and the saved
+  1,000 MHz ceiling. Live settings stayed at stock during this
+  verification. Suspend and wake with an elevated profile are
+  still pending on #52.
