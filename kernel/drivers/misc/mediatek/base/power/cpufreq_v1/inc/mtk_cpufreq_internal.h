@@ -198,6 +198,13 @@ for (i = 0, p = cpu_dvfs; (i < NR_MT_CPU_DVFS) && \
 for (i = 0, p = cpu_dvfs; i < NR_MT_CPU_DVFS; i++, p = &cpu_dvfs[i])
 #endif
 
+#if defined(CONFIG_MACH_MT6765)
+static inline int cpu_dvfs_factory_offset(const struct mt_cpu_dvfs *p)
+{
+	return max(p->nr_opp_tbl - NR_FREQ, 0);
+}
+#endif
+
 #define cpu_dvfs_is(p, id) (p == &cpu_dvfs[id])
 #define cpu_dvfs_is_available(p) (p->opp_tbl)
 #define cpu_dvfs_get_name(p) (p->name)

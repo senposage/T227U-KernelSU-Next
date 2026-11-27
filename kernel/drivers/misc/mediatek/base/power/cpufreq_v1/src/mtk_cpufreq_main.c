@@ -940,16 +940,13 @@ void _mt_cpufreq_dvfs_request_wrapper(struct mt_cpu_dvfs *p, int new_opp_idx,
 		volt_tbl = (unsigned int **)data;
 		vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
 
-		/*
-		 * MT6765 EEM provides exactly NR_FREQ factory-calibration values.
-			 * C65 LL prepends five manually selected OC entries, so preserve
-		 * those voltages and map EEM's values onto the trailing factory OPPs.
-		 */
+		/* Preserve OC voltages and update only factory OPPs. */
 		{
 			unsigned int table_offset = 0;
 
-			if (p->id == MT_CPU_DVFS_LL && p->nr_opp_tbl > NR_FREQ)
-				table_offset = p->nr_opp_tbl - NR_FREQ;
+#if defined(CONFIG_MACH_MT6765)
+			table_offset = cpu_dvfs_factory_offset(p);
+#endif
 
 			for (i = 0; i < NR_FREQ && i + table_offset < p->nr_opp_tbl;
 			     i++)
@@ -1812,6 +1809,13 @@ static int __init _mt_cpufreq_tbl_init(void)
 
 			p->opp_tbl = opp_tbl_info->opp_tbl;
 			p->nr_opp_tbl = opp_tbl_info->size;
+#if defined(CONFIG_MACH_MT6765)
+			p->idx_opp_ppm_base = p->nr_opp_tbl - 1;
+			p->idx_opp_ppm_limit = cpu_dvfs_factory_offset(p);
+			p->idx_opp_thermal_base = p->idx_opp_ppm_base;
+			p->idx_opp_user_base = p->idx_opp_ppm_base;
+			p->idx_opp_user_limit = p->idx_opp_ppm_limit;
+#endif
 			p->freq_tbl_for_cpufreq = table;
 		}
 	}

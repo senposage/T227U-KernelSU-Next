@@ -8,6 +8,15 @@
 #include "mtk_cpufreq_platform.h"
 #include <trace/events/power.h>
 
+#if defined(CONFIG_MACH_MT6765)
+int mt_cpufreq_eem_opp_offset(unsigned int cluster_id)
+{
+	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(cluster_id);
+
+	return p ? cpu_dvfs_factory_offset(p) : 0;
+}
+#endif
+
 //#ifdef CONFIG_MTK_CM_MGR_LEGACY
 cpuFreqsampler_func g_pCpuFreqSampler_func_cpi;
 /* cpu governor freq sampler */

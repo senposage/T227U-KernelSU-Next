@@ -34,6 +34,7 @@ extern int mt_cpufreq_set_iccs_frequency_by_cluster(int en,
 	unsigned int cluster_id, unsigned int freq);
 
 /* PTP-OD */
+int mt_cpufreq_eem_opp_offset(unsigned int cluster_id);
 extern unsigned int mt_cpufreq_get_freq_by_idx(unsigned int cluster_id,
 	int idx);
 extern unsigned int mt_cpufreq_get_volt_by_idx(unsigned int cluster_id,

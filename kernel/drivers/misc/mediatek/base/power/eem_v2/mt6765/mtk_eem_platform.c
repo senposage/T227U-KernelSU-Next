@@ -157,17 +157,18 @@ void restore_default_volt_cpu(struct eem_det *det)
 
 void get_freq_table_cpu(struct eem_det *det)
 {
-	int i = 0;
+	int i = 0, offset;
 	enum mt_cpu_dvfs_id cpudvfsindex;
 
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
 	cpudvfsindex = detid_to_dvfsid(det);
+	offset = mt_cpufreq_eem_opp_offset(cpudvfsindex);
 
 	for (i = 0; i < NR_FREQ_CPU; i++) {
 		det->freq_tbl[i] =
-			PERCENT(mt_cpufreq_get_freq_by_idx(cpudvfsindex, i),
+			PERCENT(mt_cpufreq_get_freq_by_idx(cpudvfsindex, i + offset),
 			det->max_freq_khz);
 		if (det->freq_tbl[i] == 0)
 			break;
@@ -190,14 +191,15 @@ void get_freq_table_cpu(struct eem_det *det)
 void get_orig_volt_table_cpu(struct eem_det *det)
 {
 #if SET_PMIC_VOLT_TO_DVFS
-	int i = 0, volt = 0;
+	int i = 0, volt = 0, offset;
 	enum mt_cpu_dvfs_id cpudvfsindex;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	cpudvfsindex = detid_to_dvfsid(det);
+	offset = mt_cpufreq_eem_opp_offset(cpudvfsindex);
 
 	for (i = 0; i < det->num_freq_tbl; i++) {
-		volt = mt_cpufreq_get_volt_by_idx(cpudvfsindex, i);
+		volt = mt_cpufreq_get_volt_by_idx(cpudvfsindex, i + offset);
 
 		det->volt_tbl_orig[i] = det->ops->volt_2_pmic(det, volt);
 
