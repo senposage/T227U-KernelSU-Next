@@ -85,9 +85,12 @@ fi
 
 # Remove obsolete profile-tuning hooks. Frequency, GPU, I/O, and VM policy
 # are user-controlled through Kernel Auditor, never forced from the ramdisk.
-rm -f "$RAMDISK/sbin/sunflower-performance.sh" "$RAMDISK/sbin/t225-perf-extra.sh";
+rm -f "$RAMDISK/init.sunflower-performance.rc" \
+  "$RAMDISK/sbin/sunflower-performance.sh" "$RAMDISK/sbin/t225-perf-extra.sh" ||
+  abort "Could not remove legacy ramdisk tuning. Aborting before boot write...";
 if [ -f "$RAMDISK/init.rc" ]; then
-  sed -i '/init\.sunflower-performance\.rc/d' "$RAMDISK/init.rc"
+  sed -i '/init\.sunflower-performance\.rc/d' "$RAMDISK/init.rc" ||
+    abort "Could not remove legacy init import. Aborting before boot write...";
 fi
 
 disable_vendor_ramplus;
