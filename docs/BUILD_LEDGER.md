@@ -1437,3 +1437,89 @@ FM reception is outside the supported feature list for this device.
   1,000 MHz ceiling. Live settings stayed at stock during this
   verification. Suspend and wake with an elevated profile are
   still pending on #52.
+
+### K-20261127-53/54-REFLEX
+
+- Build #54 packaged at 17:03 EST on codex/t227u-kernel-bringup,
+  source 4cc8d5a2749ac5edf6e1639be9fee5bce74ce8a5. Build #53
+  compiled and passed the CRC gate but was superseded when the host
+  test found a rounding inversion in the Energy Model speed floor.
+  Build #54 compares tied ratios using their remainders.
+
+  Changed paths and unified-zero hunk ranges relative to #52:
+
+      kernel/arch/arm64/configs/gta7lite_00_defconfig
+        -45,0 +46
+      kernel/drivers/cpufreq/Kconfig
+        -211,0 +212,10
+      kernel/kernel/sched/cpufreq_reflex.h
+        -0,0 +1,175
+      kernel/kernel/sched/cpufreq_schedutil.c
+        -21,0 +22,20
+        -28,0 +49,3
+        -55,0 +79,3
+        -69,0 +96,3
+        -78,0 +108,56
+        -196,0 +282,5
+        -220,2 +310,3
+        -233 +324
+        -542,0 +634
+        -546,0 +639
+        -559 +652,2
+        -603,0 +698
+        -614,0 +710
+        -626 +722
+        -647,0 +744
+        -712 +809
+        -798 +895,15
+        -800 +911,43
+        -813 +966,2
+        -814,0 +969
+        -853 +1008,2
+        -854,0 +1011
+        -967 +1124
+        -969,3 +1125,0
+        -977,3 +1130,0
+        -986,0 +1138,3
+        -1009 +1163
+        -1015 +1169
+        -1017 +1171
+        -1028,0 +1183,6
+        -1033 +1193
+        -1035 +1195
+        -1037,0 +1198,2
+        -1072 +1234,3
+        -1073,0 +1238
+        -1091,0 +1257
+        -1147,0 +1314
+        -1161,0 +1329,19
+        -1196 +1382,2
+      kernel/kernel/sched/pelt.c
+        -62,0 +63,7
+      kernel/kernel/sched/sched.h
+        -2490,0 +2491,5
+      kernel/kernel/sched/topology.c
+        -341 +340,0
+        -373 +372
+
+- Ported Reflex CPUFreq governor v0.4.0 from firelzrd/reflex
+  f0a6678e5ffa0a03040071008ff03ad7eff3170c onto the local
+  schedutil/MediaTek SSPM path. Reflex is selectable. Schedutil
+  remains the default. Reflex uses the registered Energy Model
+  when its table covers the maximum OPP and uses the upstream
+  cube-law fallback otherwise. It shares existing policy limits,
+  uclamp handling, I/O wait boost and EAS compatibility.
+- Used the established #48 command and
+  /home/legit-su/t227u-public-repro-build output. The sole
+  config delta is CONFIG_CPU_FREQ_GOV_REFLEX=y. The new SHA-256
+  is 4085b2da0ef7e7f3a9426dab08bbf83cfb3eb4e4c279836a9ef3e5143ece328b.
+- Checkpatch, targeted scheduler objects, host floor/demand checks,
+  linked governor and registration checks, all 203 patched vendor
+  CRCs and seven independent vendor module imports passed. Logs use
+  /home/legit-su/t227u-20261127-reflex as the prefix.
+- E:\T227U-RFX.zip SHA-256
+  e09ac983b50ad2959795b90a4adc10b28bd17bacadabcd254b7c0a23b4c2e190.
+  Embedded image SHA-256
+  e49376caca08d9fe22429aca4a8e0360a87433dcf1ceb3ca76edce882041c992.
+  One Manager APK and existing r9 ramdisk handling. Device
+  status: **untested**.
