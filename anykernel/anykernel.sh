@@ -14,6 +14,7 @@ set_perm_recursive 0 0 750 750 $RAMDISK/init* $RAMDISK/sbin;
 disable_vendor_ramplus() {
   local fstab=/vendor/etc/fstab.ramplus
   local backup=/vendor/etc/fstab.ramplus.t227u.bak
+  local active_zram='^[[:space:]]*/dev/block/zram[0-9]+[[:space:]]'
 
   if [ ! -f "$fstab" ]; then
     ui_print "RamPlus fstab absent; leaving vendor unchanged.";
@@ -22,7 +23,7 @@ disable_vendor_ramplus() {
 
   # Avoid requiring a writable vendor mount on subsequent flashes.  This also
   # makes the operation safe to repeat after the original one-time patch.
-  if grep -q '^# T227U manual-zram: /dev/block/zram0' "$fstab"; then
+  if ! grep -Eq "$active_zram" "$fstab"; then
     ui_print "Vendor automatic RamPlus is already disabled.";
     return 0;
   fi
@@ -37,15 +38,15 @@ disable_vendor_ramplus() {
     }
   fi
 
-  sed -i '/^[[:space:]]*\/dev\/block\/zram0[[:space:]].*zramsize=.*auto_configure/ s/^/# T227U manual-zram: /' "$fstab" || {
+  sed -E -i "\|$active_zram| s/^/# T227U manual-zram: /" "$fstab" || {
     mount -o ro,remount -t auto /vendor;
     abort "Could not patch fstab.ramplus. Aborting before boot write...";
   }
 
-  grep -q '^# T227U manual-zram: /dev/block/zram0' "$fstab" || {
+  if grep -Eq "$active_zram" "$fstab"; then
     mount -o ro,remount -t auto /vendor;
     abort "RamPlus fstab verification failed. Aborting before boot write...";
-  }
+  fi
   sync;
   mount -o ro,remount -t auto /vendor || abort "Could not remount /vendor ro. Aborting before boot write...";
 }
