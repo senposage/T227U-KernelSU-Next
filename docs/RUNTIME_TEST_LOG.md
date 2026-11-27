@@ -675,3 +675,20 @@ it was tested here.
   and no failure. The screen-off observation did not exercise
   the DVFSRC system-suspend callback. Captured logs are at
   /home/legit-su/t227u-20261127-dvfs-rails-device.log.
+
+### Forced deep suspend on build #49
+
+- At 16:02 EST an ADB request for deep suspend with 1,000 mV
+  VSRAM and a 900 mV programmed VCORE reached device suspend.
+  10012000.dvfsrc:dvfsrc-debug returned -EBUSY (errno -16).
+  The kernel recorded one failed suspend and zero successes.
+- At 16:03 EST the stock control reduced the GPU ceiling to
+  680 MHz, reset top VCORE to 800 mV and then reset VSRAM to
+  900 mV. The deep-suspend write then succeeded. SPM reported
+  the modem CCIF0 wake source and the success count rose to one.
+  The cycle was brief. This run did not test elevated rails
+  inside deep suspend.
+- After wake the test restored 1,000 mV VSRAM, 900 mV programmed
+  VCORE and the 1,000 MHz ceiling. The KA settings database was
+  left intact. Capture is in
+  /home/legit-su/t227u-20261127-dvfs-rails-suspend.log.
