@@ -1332,3 +1332,101 @@ FM reception is outside the supported feature list for this device.
   the requested 1,000 mV SRAM, 900 mV VCORE and 1,000 MHz
   ceiling. Screen-off idle reached gear 3 without a floor
   vote. Deep-suspend validation remains pending.
+
+### K-20261127-50/51/52-GPU-RAIL-SUSPEND
+
+- The work used codex/t227u-kernel-bringup and the established #48
+  command, output and config hash
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Build #50 compiled. #51 replaced its sysfs return expressions with
+  signed-error returns. #51 was packaged locally with ZIP SHA-256
+  487261fcdeffa6340a4fed81cfd7fdb934c8efb11607c6f8915ed4104781da1b
+  but superseded before device delivery.
+- #51 source 5ba34b5fbaf80870a2a761847a9ad03e72cb28dc moves the
+  GPU ceiling, VCORE and SRAM to stock in suspend preparation,
+  then restores SRAM before VCORE and the ceiling on wake.
+- #52 source b01d0d1c0954caf387a3813b4cd72ef5db7dcc9c was packaged
+  at 16:18 EST. It raises the limits to 1,025/925 mV and requires
+  gear 2 or higher above 1,000 mV SRAM to maintain a 350 mV maximum
+  spread. Lowering SRAM back to 1,000 mV or less releases the gear
+  vote. New VCORE settings above 900 mV require 100 mV headroom.
+
+  Source paths and unified-zero hunk ranges through #51:
+
+      kernel/drivers/gpu/mediatek/gpufreq/mt6765/mtk_gpufreq_core.c
+        -25,0 +26
+        -224,0 +226
+        -275,0 +278,8
+        -284,0 +295
+        -366,6 +377,7
+        -402,0 +415,23
+        -1386 +1421
+        -1426,0 +1462
+      kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c
+        -17,0 +18
+        -117,0 +119,5
+        -164 +170
+        -208 +214
+        -256,2 +262
+        -259,2 +264,2
+        -264,4 +268,0
+        -274 +274,0
+        -277 +277
+        -279,4 +279,2
+        -295 +293
+        -303 +301,24
+        -304,0 +326
+        -347,2 +369
+        -350,2 +371,2
+        -354,4 +374,0
+        -362 +378,0
+        -380 +396
+        -422,0 +439,16
+        -423,0 +456
+        -429,0 +463,113
+        -441,0 +588,10
+        -444,0 +601
+        -449,0 +607
+        -682 +840
+      kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug.c
+        -277,3 +277,6
+        -301 +304
+        -302,0 +306,2
+      kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug.h
+        -35,0 +36,4
+        -59,0 +64,2
+      kernel/include/linux/soc/mediatek/mtk_dvfsrc.h
+        -23,0 +24,9
+
+  Additional source hunks for #52:
+
+      kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c
+        -105 +105,2
+        -111 +112
+        -112,0 +114
+        -114,0 +117,2
+        -117,0 +122
+        -134 +139,2
+        -202,0 +209,3
+        -204 +213
+        -359 +368
+        -362,0 +372
+        -373 +383,2
+        -397,3 +408,3
+        -409,0 +421,19
+        -414 +444
+        -430 +460
+        -432,0 +463,4
+        -437,0 +472,5
+
+- #52 passed checkpatch, host checks for rail order and failure
+  recovery, including the high-rail guard and suspend restore.
+  The CRC gate verified 203 exports with zero mismatches after
+  patching. All seven vendor module import checks and the linked
+  OPP table passed. Logs use /home/legit-su/t227u-20261127-rail-suspend.
+- E:\T227U-PM.zip SHA-256
+  a09912f8740382f4facfa136dc09baa393ccd6ffe587e69ef8eccceb05b12e15.
+  Embedded image SHA-256
+  845cceccba655b8b970b8113cb08d021341f634ff417d219e45318ff3ee063b7.
+  r9 installer and ramdisk handling preserved. ZIP checks found one
+  Manager APK. Device status: **untested**.
