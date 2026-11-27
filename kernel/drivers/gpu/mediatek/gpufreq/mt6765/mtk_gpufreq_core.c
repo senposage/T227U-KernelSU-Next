@@ -23,6 +23,7 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/clk-provider.h>
 #include <linux/seq_file.h>
 
@@ -222,6 +223,7 @@ static unsigned int g_fixed_freq;
 static unsigned int g_fixed_volt;
 static unsigned int g_max_limited_idx;
 static unsigned int g_oc_max_idx;
+static bool g_oc_stock_hold;
 static unsigned int g_pbm_limited_power;
 static unsigned int g_thermal_protect_power;
 static unsigned int g_vgpu_sfchg_rrate;
@@ -273,6 +275,14 @@ static unsigned int mt_gpufreq_oc_opp_count(void)
 	return 0;
 }
 
+static unsigned int mt_gpufreq_effective_ceiling(void)
+{
+	if (g_oc_stock_hold)
+		return max(g_oc_max_idx, mt_gpufreq_oc_opp_count());
+
+	return g_oc_max_idx;
+}
+
 /*
  * API : handle frequency change request
  */
@@ -282,6 +292,7 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 	unsigned int target_volt;
 	unsigned int target_idx;
 	unsigned int target_cond_idx;
+	unsigned int cap_idx;
 
 	mutex_lock(&mt_gpufreq_lock);
 
@@ -363,12 +374,13 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 	 * Keep this after every legacy override so fixed/keep-frequency proc
 	 * commands cannot silently bypass the safety cap.
 	 */
-	if ((g_oc_max_idx || g_segment_id == MT6765_SEGMENT) &&
-	    target_freq > g_opp_table[g_oc_max_idx].gpufreq_khz) {
-		target_freq = g_opp_table[g_oc_max_idx].gpufreq_khz;
-		target_volt = g_opp_table[g_oc_max_idx].gpufreq_volt;
-		target_idx = g_opp_table[g_oc_max_idx].gpufreq_idx;
-		target_cond_idx = g_oc_max_idx;
+	cap_idx = mt_gpufreq_effective_ceiling();
+	if ((cap_idx || g_segment_id == MT6765_SEGMENT) &&
+	    target_freq > g_opp_table[cap_idx].gpufreq_khz) {
+		target_freq = g_opp_table[cap_idx].gpufreq_khz;
+		target_volt = g_opp_table[cap_idx].gpufreq_volt;
+		target_idx = g_opp_table[cap_idx].gpufreq_idx;
+		target_cond_idx = cap_idx;
 		gpufreq_pr_debug("@%s: OPP freq is limited by OC cap %d\n",
 			__func__, target_cond_idx);
 	}
@@ -399,6 +411,29 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 	return 0;
 }
 EXPORT_SYMBOL(mt_gpufreq_target);
+
+int mt6765_gpufreq_hold_stock_ceiling(bool hold)
+{
+	unsigned int cap_idx;
+	bool lower_current;
+
+	mutex_lock(&mt_gpufreq_lock);
+	if (!g_opp_table) {
+		mutex_unlock(&mt_gpufreq_lock);
+		return -ENODEV;
+	}
+
+	g_oc_stock_hold = hold;
+	cap_idx = mt_gpufreq_effective_ceiling();
+	lower_current = g_cur_opp_freq > g_opp_table[cap_idx].gpufreq_khz;
+	mutex_unlock(&mt_gpufreq_lock);
+
+	if (hold && lower_current && mt_gpufreq_target(cap_idx))
+		return -EIO;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6765_gpufreq_hold_stock_ceiling);
 
 /*
  * enable MTCMOS
@@ -1383,7 +1418,7 @@ static int mt_gpufreq_oc_max_freq_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&mt_gpufreq_lock);
 	seq_printf(m, "max_freq_khz = %u\n",
-		g_opp_table[g_oc_max_idx].gpufreq_khz);
+		g_opp_table[mt_gpufreq_effective_ceiling()].gpufreq_khz);
 	seq_puts(m, "available_khz:");
 	for (i = 0; i < g_opp_idx_num; i++)
 		seq_printf(m, " %u", g_opp_table[i].gpufreq_khz);
@@ -1424,6 +1459,7 @@ static ssize_t mt_gpufreq_oc_max_freq_proc_write(struct file *file,
 		}
 	}
 	g_oc_max_idx = target_idx;
+	target_idx = mt_gpufreq_effective_ceiling();
 	lower_current = g_cur_opp_freq > g_opp_table[target_idx].gpufreq_khz;
 	mutex_unlock(&mt_gpufreq_lock);
 

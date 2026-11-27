@@ -21,6 +21,15 @@
 
 #define MTK_SIP_SPM_DVFSRC_INIT 0
 
+#if defined(CONFIG_MACH_MT6765) && IS_REACHABLE(CONFIG_MTK_GPU_SUPPORT)
+int mt6765_gpufreq_hold_stock_ceiling(bool hold);
+#else
+static inline int mt6765_gpufreq_hold_stock_ceiling(bool hold)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data);
 int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data);

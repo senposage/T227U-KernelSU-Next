@@ -15,6 +15,7 @@
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/suspend.h>
 
 #include "dvfsrc-debug.h"
 #include "dvfsrc-common.h"
@@ -115,6 +116,11 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 static DEFINE_MUTEX(top_vcore_lock);
 static bool vsram_override_active;
 
+static int dvfsrc_vcore_cmd_uv(u32 cmd)
+{
+	return TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV;
+}
+
 static int dvfsrc_top_vcore_read_cmd(struct mtk_dvfsrc *dvfsrc, u32 *cmd)
 {
 	if (!dvfsrc->spm_regs || !dvfsrc->vcore_power ||
@@ -161,7 +167,7 @@ static ssize_t dvfsrc_top_vcore_uv_show(struct device *dev,
 	else
 		ret = scnprintf(buf, PAGE_SIZE,
 				"programmed_uv=%u live_uv=%d active_gear=%d\n",
-				TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV,
+				dvfsrc_vcore_cmd_uv(cmd),
 				live_uv, gear);
 	mutex_unlock(&top_vcore_lock);
 
@@ -205,7 +211,7 @@ static int dvfsrc_refresh_top_vcore(struct mtk_dvfsrc *dvfsrc, int uv)
 	struct regulator *rail;
 	int sram_uv, old_uv, live_uv, ret;
 
-	if (!vsram_override_active ||
+	if ((!vsram_override_active && !dvfsrc->suspend_vsram_uv) ||
 	    mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP) != VCORE_OPP_0 ||
 	    regulator_get_voltage(dvfsrc->vcore_power) == uv)
 		return 0;
@@ -253,33 +259,25 @@ out:
 	return ret;
 }
 
-static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static int dvfsrc_set_top_vcore(struct mtk_dvfsrc *dvfsrc, u32 uv)
 {
-	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-	u32 uv, selector, old_cmd, new_cmd;
+	struct device *dev = dvfsrc->dev;
+	u32 selector, old_cmd, new_cmd;
 	int ret;
 	long status;
 
-	if (kstrtou32(buf, 10, &uv))
-		return -EINVAL;
-	if (!uv)
-		uv = TOP_VCORE_STOCK_UV;
 	if (uv < TOP_VCORE_STOCK_UV || uv > TOP_VCORE_MAX_UV ||
 	    (uv - TOP_VCORE_BASE_UV) % TOP_VCORE_STEP_UV)
 		return -EINVAL;
 
 	selector = TOP_VCORE_SELECTOR(uv);
 
-	mutex_lock(&top_vcore_lock);
 	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &old_cmd);
 	if (ret)
-		goto out;
+		return ret;
 
-	if (uv > TOP_VCORE_STOCK_UV && (int)uv > dvfsrc_top_vcore_limit(dvfsrc)) {
-		ret = -ERANGE;
-		goto out;
-	}
+	if (uv > TOP_VCORE_STOCK_UV && (int)uv > dvfsrc_top_vcore_limit(dvfsrc))
+		return -ERANGE;
 	if (old_cmd != (TOP_VCORE_PMIC_REG | selector)) {
 		status = mt6765_spm_write_pwrap_cmd(TOP_VCORE_CMD, selector);
 		ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &new_cmd);
@@ -292,7 +290,7 @@ static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
 
 	ret = dvfsrc_refresh_top_vcore(dvfsrc, uv);
 	if (!ret)
-		goto out;
+		return 0;
 
 restore_cmd:
 	if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd) {
@@ -300,8 +298,32 @@ restore_cmd:
 		if (spm_read(dvfsrc, SPM_DVFS_CMD0) != old_cmd)
 			dev_err(dev, "failed to restore VCORE command slot 0\n");
 	}
-out:
+	return ret;
+}
+
+static ssize_t dvfsrc_top_vcore_uv_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+	u32 uv;
+	int ret;
+
+	if (kstrtou32(buf, 10, &uv))
+		return -EINVAL;
+
+	mutex_lock(&top_vcore_lock);
+	if (dvfsrc->suspend_vsram_uv) {
+		ret = -EBUSY;
+	} else {
+		ret = dvfsrc_set_top_vcore(dvfsrc, uv ?: TOP_VCORE_STOCK_UV);
+		if (!ret && dvfsrc->gpu_rail_restore_failed) {
+			ret = mt6765_gpufreq_hold_stock_ceiling(false);
+			if (!ret)
+				dvfsrc->gpu_rail_restore_failed = false;
+		}
+	}
 	mutex_unlock(&top_vcore_lock);
+
 	if (ret)
 		return ret;
 
@@ -344,22 +366,16 @@ static ssize_t dvfsrc_vsram_test_uv_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static int dvfsrc_set_vsram(struct mtk_dvfsrc *dvfsrc, u32 uv)
 {
-	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-	u32 uv, cmd;
+	struct device *dev = dvfsrc->dev;
+	u32 cmd;
 	int old_uv, programmed_uv, live_uv, levels, ret;
 
-	if (kstrtou32(buf, 10, &uv))
-		return -EINVAL;
-	if (!uv)
-		uv = VSRAM_TEST_STOCK_UV;
 	if (uv < VSRAM_TEST_STOCK_UV || uv > VSRAM_TEST_MAX_UV ||
 	    (uv - VSRAM_TEST_STOCK_UV) % TOP_VCORE_STEP_UV)
 		return -EINVAL;
 
-	mutex_lock(&top_vcore_lock);
 	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &cmd);
 	if (ret)
 		goto out;
@@ -377,7 +393,7 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 				  !vsram_override_active))
 		goto out;
 
-	programmed_uv = TOP_VCORE_BASE_UV + (cmd & 0x7f) * TOP_VCORE_STEP_UV;
+	programmed_uv = dvfsrc_vcore_cmd_uv(cmd);
 	/* Both SRAM targets must fit every selectable firmware VCORE voltage. */
 	if (programmed_uv > min_t(int, old_uv, uv) - VSRAM_TEST_HEADROOM_UV ||
 	    max_t(int, old_uv, uv) > VCORE_LOWEST_FW_UV + VSRAM_TEST_MAX_GAP_UV) {
@@ -420,11 +436,141 @@ static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
 		dvfsrc->vsram_test_power = NULL;
 	}
 out:
+	return ret;
+}
+
+static ssize_t dvfsrc_vsram_test_uv_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+	u32 uv;
+	int ret;
+
+	if (kstrtou32(buf, 10, &uv))
+		return -EINVAL;
+
+	mutex_lock(&top_vcore_lock);
+	ret = dvfsrc->suspend_vsram_uv ? -EBUSY :
+		dvfsrc_set_vsram(dvfsrc, uv ?: VSRAM_TEST_STOCK_UV);
 	mutex_unlock(&top_vcore_lock);
+
 	if (ret)
 		return ret;
 
 	return count;
+}
+
+/* PM prepare runs before tasks freeze. Post-suspend runs with the PMIC awake. */
+static void dvfsrc_resume_gpu_rails(struct mtk_dvfsrc *dvfsrc)
+{
+	int ret;
+
+	if (!dvfsrc->suspend_vsram_uv)
+		return;
+
+	ret = dvfsrc_set_vsram(dvfsrc, dvfsrc->suspend_vsram_uv);
+	if (ret) {
+		dev_err(dvfsrc->dev, "GPU resume VSRAM restore failed: %d\n", ret);
+		goto stock;
+	}
+
+	ret = dvfsrc_set_top_vcore(dvfsrc, dvfsrc->suspend_vcore_uv);
+	if (ret) {
+		dev_err(dvfsrc->dev, "GPU resume VCORE restore failed: %d\n", ret);
+		goto stock;
+	}
+
+	ret = mt6765_gpufreq_hold_stock_ceiling(false);
+	if (!ret) {
+		dvfsrc->gpu_rail_restore_failed = false;
+		goto out;
+	}
+	dev_err(dvfsrc->dev, "GPU resume ceiling restore failed: %d\n", ret);
+
+stock:
+	dvfsrc->gpu_rail_restore_failed = true;
+	if (dvfsrc_set_top_vcore(dvfsrc, TOP_VCORE_STOCK_UV) ||
+	    dvfsrc_set_vsram(dvfsrc, VSRAM_TEST_STOCK_UV))
+		dev_err(dvfsrc->dev, "GPU resume stock rail recovery failed\n");
+out:
+	dvfsrc->suspend_vsram_uv = 0;
+}
+
+static int dvfsrc_prepare_gpu_rails(struct mtk_dvfsrc *dvfsrc)
+{
+	u32 cmd;
+	int core_uv, sram_uv, ret;
+
+	ret = dvfsrc_top_vcore_read_cmd(dvfsrc, &cmd);
+	if (ret)
+		return vsram_override_active ? ret : 0;
+
+	core_uv = dvfsrc_vcore_cmd_uv(cmd);
+	if (!vsram_override_active && core_uv == TOP_VCORE_STOCK_UV)
+		return 0;
+
+	ret = dvfsrc_vsram_test_get_power(dvfsrc);
+	if (ret)
+		return ret;
+	sram_uv = regulator_get_voltage(dvfsrc->vsram_test_power);
+	if (sram_uv < VSRAM_TEST_STOCK_UV || sram_uv > VSRAM_TEST_MAX_UV)
+		return -EIO;
+
+	ret = mt6765_gpufreq_hold_stock_ceiling(true);
+	if (ret) {
+		if (!dvfsrc->gpu_rail_restore_failed)
+			mt6765_gpufreq_hold_stock_ceiling(false);
+		return ret;
+	}
+
+	dvfsrc->suspend_vcore_uv = core_uv;
+	dvfsrc->suspend_vsram_uv = sram_uv;
+	ret = dvfsrc_set_top_vcore(dvfsrc, TOP_VCORE_STOCK_UV);
+	if (!ret)
+		ret = dvfsrc_set_vsram(dvfsrc, VSRAM_TEST_STOCK_UV);
+	if (ret)
+		dvfsrc_resume_gpu_rails(dvfsrc);
+
+	return ret;
+}
+
+static int dvfsrc_gpu_rail_pm_notify(struct notifier_block *nb,
+		unsigned long event, void *unused)
+{
+	struct mtk_dvfsrc *dvfsrc;
+	int ret = 0;
+
+	dvfsrc = container_of(nb, struct mtk_dvfsrc, gpu_rail_pm_notifier);
+	mutex_lock(&top_vcore_lock);
+	if (event == PM_SUSPEND_PREPARE) {
+		ret = dvfsrc_prepare_gpu_rails(dvfsrc);
+		if (ret)
+			dev_err(dvfsrc->dev, "GPU suspend stock rail preparation failed: %d\n",
+				ret);
+	} else if (event == PM_POST_SUSPEND) {
+		dvfsrc_resume_gpu_rails(dvfsrc);
+	}
+	mutex_unlock(&top_vcore_lock);
+
+	return notifier_from_errno(ret);
+}
+
+int dvfsrc_gpu_rail_pm_register(struct mtk_dvfsrc *dvfsrc)
+{
+	int ret;
+
+	dvfsrc->gpu_rail_pm_notifier.notifier_call = dvfsrc_gpu_rail_pm_notify;
+	ret = register_pm_notifier(&dvfsrc->gpu_rail_pm_notifier);
+	if (ret)
+		dvfsrc->gpu_rail_pm_notifier.notifier_call = NULL;
+
+	return ret;
+}
+
+void dvfsrc_gpu_rail_pm_unregister(struct mtk_dvfsrc *dvfsrc)
+{
+	if (dvfsrc->gpu_rail_pm_notifier.notifier_call)
+		unregister_pm_notifier(&dvfsrc->gpu_rail_pm_notifier);
 }
 
 int dvfsrc_vsram_test_suspend(struct device *dev)
@@ -439,14 +585,26 @@ int dvfsrc_vsram_test_suspend(struct device *dev)
 	return ret;
 }
 
+static ssize_t dvfsrc_gpu_rail_pm_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		IS_ENABLED(CONFIG_SUSPEND) &&
+		dvfsrc->gpu_rail_pm_notifier.notifier_call != NULL);
+}
+
 static DEVICE_ATTR_RW(dvfsrc_vsram_test_uv);
 static DEVICE_ATTR_RW(dvfsrc_top_vcore_uv);
 static DEVICE_ATTR_RO(dvfsrc_top_vcore_max_uv);
+static DEVICE_ATTR_RO(dvfsrc_gpu_rail_pm);
 
 static struct attribute *dvfsrc_top_vcore_attrs[] = {
 	&dev_attr_dvfsrc_top_vcore_uv.attr,
 	&dev_attr_dvfsrc_top_vcore_max_uv.attr,
 	&dev_attr_dvfsrc_vsram_test_uv.attr,
+	&dev_attr_dvfsrc_gpu_rail_pm.attr,
 	NULL,
 };
 
@@ -679,7 +837,7 @@ static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
 #ifdef CONFIG_MACH_MT6765
 	mutex_lock(&top_vcore_lock);
-	if (vsram_override_active) {
+	if (vsram_override_active || dvfsrc->suspend_vsram_uv) {
 		dev_warn(dvfsrc->dev, "cannot force DVFSRC while VSRAM override is active\n");
 		mutex_unlock(&top_vcore_lock);
 		return;

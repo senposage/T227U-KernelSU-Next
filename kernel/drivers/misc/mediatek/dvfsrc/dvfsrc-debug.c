@@ -274,9 +274,12 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dvfsrc);
 #ifdef CONFIG_MACH_MT6765
-	if (of_device_is_compatible(np, "mediatek,mt6765-dvfsrc-debug") &&
-	    sysfs_create_group(&dev->kobj, &dvfsrc_top_vcore_group))
-		dev_warn(dev, "cannot register top VCORE test control\n");
+	if (of_device_is_compatible(np, "mediatek,mt6765-dvfsrc-debug")) {
+		if (sysfs_create_group(&dev->kobj, &dvfsrc_top_vcore_group))
+			dev_warn(dev, "cannot register top VCORE test control\n");
+		else if (dvfsrc_gpu_rail_pm_register(dvfsrc))
+			dev_warn(dev, "cannot register GPU rail suspend handling\n");
+	}
 #endif
 
 	return 0;
@@ -298,8 +301,10 @@ static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
 
 #ifdef CONFIG_MACH_MT6765
-	if (of_device_is_compatible(dev->of_node, "mediatek,mt6765-dvfsrc-debug"))
+	if (of_device_is_compatible(dev->of_node, "mediatek,mt6765-dvfsrc-debug")) {
 		sysfs_remove_group(&dev->kobj, &dvfsrc_top_vcore_group);
+		dvfsrc_gpu_rail_pm_unregister(dvfsrc);
+	}
 #endif
 	unregister_dvfsrc_vchk_notifier(&dvfsrc->dvfsrc_vchk_notifier);
 	dvfsrc_unregister_sysfs(dev);

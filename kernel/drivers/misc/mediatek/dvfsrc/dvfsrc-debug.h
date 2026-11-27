@@ -33,6 +33,10 @@ struct mtk_dvfsrc {
 	struct regulator *vcore_power;
 #ifdef CONFIG_MACH_MT6765
 	struct regulator *vsram_test_power;
+	struct notifier_block gpu_rail_pm_notifier;
+	int suspend_vsram_uv;
+	int suspend_vcore_uv;
+	bool gpu_rail_restore_failed;
 #endif
 	struct regulator *dvfsrc_vcore_power;
 	struct regulator *dvfsrc_vscp_power;
@@ -57,6 +61,8 @@ extern const struct dvfsrc_config mt6761_dvfsrc_config;
 #ifdef CONFIG_MACH_MT6765
 extern const struct attribute_group dvfsrc_top_vcore_group;
 int dvfsrc_vsram_test_suspend(struct device *dev);
+int dvfsrc_gpu_rail_pm_register(struct mtk_dvfsrc *dvfsrc);
+void dvfsrc_gpu_rail_pm_unregister(struct mtk_dvfsrc *dvfsrc);
 #endif
 #endif
 
