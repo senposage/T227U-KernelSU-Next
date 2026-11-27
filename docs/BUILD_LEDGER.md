@@ -1279,3 +1279,51 @@ FM reception is outside the supported feature list for this device.
   `662e87e346c0c0001da512d59da0ac9b466d18dba488d06d5ba82de26561e70f`.
   The installer carries one Manager APK. Device status:
   **untested**.
+
+### K-20261127-49-GPU-DVFS
+
+- Packaged 2026-11-27 at 15:49 EST on codex/t227u-kernel-bringup,
+  source 2d69989f9b2c043bf3dac367c23156d0d3b03d32. Relative to #48,
+  all source hunks are in kernel/drivers/misc/mediatek/dvfsrc/dvfsrc-debug-v61.c.
+  Unified-zero ranges follow:
+      -111 +110,0
+      -113 +112,2
+      -116,2 +116
+      -130 +129,2
+      -208 +208
+      -324,26 +323,0
+      -363 +337
+      -367 +340,0
+      -380 +352,0
+      -398 +369,0
+      -401 +372
+      -405 +376,2
+      -409 +381,3
+      -420,6 +393,0
+      -427,3 +395
+      -432 +398
+      -440 +406,2
+      -447 +414
+      -450,11 +417,5
+      -474 +435
+      -721,2 +682,2
+
+- Removed the persistent SRAM gear vote. The validated firmware
+  slots reach 650 mV, so 1,000 mV SRAM uses a 350 mV maximum
+  runtime spread. The active-gear refresh still uses a temporary
+  vote. Elevated SRAM blocks suspend. KA 268 enforces 100 mV
+  between programmed targets.
+- Used the #48 build command and output
+  /home/legit-su/t227u-public-repro-build, with config
+  ae63d8ec8ed72586802644719132ae95f303fbd3137518d9783012a50d39af99.
+  Checkpatch and the host tests passed, including ordered stock
+  reset and recovery after a rail write error. All 203 vendor CRC
+  exports verified after patching with zero mismatches. Seven
+  independent vendor module import checks passed. Logs use
+  /home/legit-su/t227u-20261127-dvfs-rails as their prefix.
+- E:\T227U-DV.zip SHA-256
+  275d9613514cde924f2fb100d895cc5ee15a794ba260c8a1e94ae62bbcd39de2.
+  Embedded image SHA-256
+  c6d4bc583cf2bee7ea046e546b33fa3bfc220496fe5d7e74a3704f9298b19e03.
+  The installer carries one Manager APK. Ramdisk handling is
+  inherited from the r9 installer. Device status is **untested**.

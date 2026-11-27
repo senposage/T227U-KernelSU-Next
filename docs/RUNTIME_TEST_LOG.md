@@ -647,3 +647,14 @@ it was tested here.
   while elevated. The inspection performed no rail writes.
 - Build #48 addresses this case. Hardware confirmation of
   the live-voltage refresh is pending.
+
+### KA 267 to 268 on build #48
+
+- The SM-T227U was running #48 on November 27, 2026. KA 267
+  had saved a legacy per-bin voltage write and an 800 MHz
+  clock ceiling, but its boot settings contained no shared SRAM
+  or VCORE targets. CMD4 in the kernel dump encoded 650 mV.
+- KA 268 installed in place. The immediate reading showed
+  900 mV VSRAM, 800 mV programmed VCORE, and no SRAM vote.
+  Ordered boot restore with elevated SRAM and #49 remain
+  pending hardware validation.
