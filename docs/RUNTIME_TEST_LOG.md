@@ -692,3 +692,26 @@ it was tested here.
   VCORE and the 1,000 MHz ceiling. The KA settings database was
   left intact. Capture is in
   /home/legit-su/t227u-20261127-dvfs-rails-suspend.log.
+
+### Build #52 Asphalt load test with and without ZRAM
+
+- On November 27, 2026, KA 270 and build #52 ran both tests at
+  1,000 mV VSRAM, a 900 mV programmed VCORE slot and a
+  1,000 MHz GPU ceiling. Both traces reached the 1,000 MHz
+  OPP, with measured clocks near 1 GHz and 900 mV live VCORE
+  in gear 0. Other samples read 700 mV live in gear 1.
+  VSRAM was constant in the sampled data.
+- The first boot replay had been canceled. ZRAM disksize was
+  zero and no swap was active. Android lowmemorykiller killed
+  the foreground Asphalt process, PID 13003, at 16:31:40 EST
+  when the low watermark was breached and memory was thrashing.
+  The kill reported 1,375,924 KiB RSS and zero swap for the process.
+  Activity Manager recorded LOW_MEMORY.
+- The retry ran with 2,040 MiB configured ZRAM, LZ4, and a
+  16,384-byte loaded dictionary. Observed peak swap use was
+  680,448 KiB (about 664 MiB). The game process, PID 16792,
+  exited at 16:34:34 EST with EXIT_SELF and status 0.
+- Local traces in the Windows workspace are
+  t227u-asphalt-rails-20261127-162931.log (early first run),
+  t227u-asphalt-live-20261127-163018.log (first load),
+  and t227u-asphalt-zram-20261127-163343.log (retry).
