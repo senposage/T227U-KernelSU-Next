@@ -1,5 +1,5 @@
 properties() { '
-kernel.string=T227U KernelSU-Next r9
+kernel.string=grabbag | SM-T227U
 do.devicecheck=1
 do.cleanup=1
 do.cleanuponabort=0

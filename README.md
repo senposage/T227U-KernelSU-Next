@@ -1,8 +1,9 @@
-# SM-T227U KernelSU-Next Kernel
+# grabbag
 
-Custom Android 4.19 kernel source for the Samsung Galaxy Tab A7 Lite LTE
-(`SM-T227U`, `gta7lite`). This tree is derived from the related T225 source
-and is maintained for the T227U vendor ABI and `gta7lite_00_defconfig` build.
+grabbag is a custom Android 4.19 kernel for the Samsung Galaxy Tab A7 Lite
+LTE (`SM-T227U`, `gta7lite`). It combines upstream backports with fixes
+for this device and targets the T227U vendor ABI and
+`gta7lite_00_defconfig`.
 
 Prebuilt artifacts are deliberately not committed here. Flashable packages are
 published on the [Releases](../../releases) page.
