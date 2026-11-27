@@ -102,19 +102,24 @@ static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 #define TOP_VCORE_BASE_UV	518750
 #define TOP_VCORE_STEP_UV	6250
 #define TOP_VCORE_STOCK_UV	800000
-#define TOP_VCORE_MAX_UV	900000
+#define TOP_VCORE_NO_FLOOR_MAX_UV	900000
+#define TOP_VCORE_MAX_UV	925000
 #define TOP_VCORE_CMD		0
 #define TOP_VCORE_PMIC_REG	((u32)MT6357_RG_BUCK_VCORE_VOSEL_ADDR << 16)
 #define TOP_VCORE_SELECTOR(uv)	(((uv) - TOP_VCORE_BASE_UV) / TOP_VCORE_STEP_UV)
 
 #define VSRAM_TEST_STOCK_UV	900000
-#define VSRAM_TEST_MAX_UV	1000000
+#define VSRAM_TEST_MAX_UV	1025000
 #define VSRAM_TEST_HEADROOM_UV	75000
+#define VSRAM_HIGH_HEADROOM_UV	100000
 #define VSRAM_TEST_MAX_GAP_UV	350000
 #define VCORE_LOWEST_FW_UV	650000
+#define VCORE_SRAM_FLOOR_UV	675000
+#define VSRAM_NO_FLOOR_MAX_UV	(VCORE_LOWEST_FW_UV + VSRAM_TEST_MAX_GAP_UV)
 
 static DEFINE_MUTEX(top_vcore_lock);
 static bool vsram_override_active;
+static struct mtk_pm_qos_request vsram_high_floor;
 
 static int dvfsrc_vcore_cmd_uv(u32 cmd)
 {
@@ -131,7 +136,8 @@ static int dvfsrc_top_vcore_read_cmd(struct mtk_dvfsrc *dvfsrc, u32 *cmd)
 	/* Confirm the firmware's VCORE command layout before using slot 0. */
 	if (spm_read(dvfsrc, SPM_DVFS_CMD1) != (TOP_VCORE_PMIC_REG | 0x25) ||
 	    spm_read(dvfsrc, SPM_DVFS_CMD2) != (TOP_VCORE_PMIC_REG | 0x1d) ||
-	    spm_read(dvfsrc, SPM_DVFS_CMD3) != (TOP_VCORE_PMIC_REG | 0x19) ||
+	    spm_read(dvfsrc, SPM_DVFS_CMD3) !=
+	    (TOP_VCORE_PMIC_REG | TOP_VCORE_SELECTOR(VCORE_SRAM_FLOOR_UV)) ||
 	    spm_read(dvfsrc, SPM_DVFS_CMD4) !=
 	    (TOP_VCORE_PMIC_REG | TOP_VCORE_SELECTOR(VCORE_LOWEST_FW_UV)))
 		return -EOPNOTSUPP;
@@ -200,8 +206,11 @@ static int dvfsrc_top_vcore_limit(struct mtk_dvfsrc *dvfsrc)
 	vsram_uv = regulator_get_voltage(dvfsrc->vsram_test_power);
 	if (vsram_uv < TOP_VCORE_STOCK_UV + VSRAM_TEST_HEADROOM_UV)
 		return TOP_VCORE_STOCK_UV;
+	if (!mtk_pm_qos_request_active(&vsram_high_floor))
+		return min(vsram_uv - VSRAM_TEST_HEADROOM_UV,
+			   TOP_VCORE_NO_FLOOR_MAX_UV);
 
-	return min(vsram_uv - VSRAM_TEST_HEADROOM_UV, TOP_VCORE_MAX_UV);
+	return min(vsram_uv - VSRAM_HIGH_HEADROOM_UV, TOP_VCORE_MAX_UV);
 }
 
 /* The SPM slot is consumed on gear changes. Refresh an already held gear. */
@@ -356,10 +365,11 @@ static ssize_t dvfsrc_vsram_test_uv_show(struct device *dev,
 	ret = dvfsrc_vsram_test_get_power(dvfsrc);
 	if (!ret)
 		ret = scnprintf(buf, PAGE_SIZE,
-				"vsram_uv=%d vcore_uv=%d active_gear=%d floor_active=0 max_uv=%d min_delta_uv=%d\n",
+				"vsram_uv=%d vcore_uv=%d active_gear=%d floor_active=%d max_uv=%d min_delta_uv=%d\n",
 				regulator_get_voltage(dvfsrc->vsram_test_power),
 				regulator_get_voltage(dvfsrc->vcore_power),
 				mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP),
+				mtk_pm_qos_request_active(&vsram_high_floor),
 				VSRAM_TEST_MAX_UV, VSRAM_TEST_HEADROOM_UV);
 	mutex_unlock(&top_vcore_lock);
 
@@ -370,7 +380,8 @@ static int dvfsrc_set_vsram(struct mtk_dvfsrc *dvfsrc, u32 uv)
 {
 	struct device *dev = dvfsrc->dev;
 	u32 cmd;
-	int old_uv, programmed_uv, live_uv, levels, ret;
+	int old_uv, programmed_uv, live_uv, levels, gear, headroom, ret;
+	bool added_floor = false;
 
 	if (uv < VSRAM_TEST_STOCK_UV || uv > VSRAM_TEST_MAX_UV ||
 	    (uv - VSRAM_TEST_STOCK_UV) % TOP_VCORE_STEP_UV)
@@ -394,9 +405,9 @@ static int dvfsrc_set_vsram(struct mtk_dvfsrc *dvfsrc, u32 uv)
 		goto out;
 
 	programmed_uv = dvfsrc_vcore_cmd_uv(cmd);
-	/* Both SRAM targets must fit every selectable firmware VCORE voltage. */
-	if (programmed_uv > min_t(int, old_uv, uv) - VSRAM_TEST_HEADROOM_UV ||
-	    max_t(int, old_uv, uv) > VCORE_LOWEST_FW_UV + VSRAM_TEST_MAX_GAP_UV) {
+	headroom = programmed_uv > TOP_VCORE_NO_FLOOR_MAX_UV ?
+		VSRAM_HIGH_HEADROOM_UV : VSRAM_TEST_HEADROOM_UV;
+	if (programmed_uv > min_t(int, old_uv, uv) - headroom) {
 		ret = -ERANGE;
 		goto out;
 	}
@@ -407,11 +418,30 @@ static int dvfsrc_set_vsram(struct mtk_dvfsrc *dvfsrc, u32 uv)
 		goto out;
 	}
 
+	/* Above 1 V, gear 3 would exceed the permitted VSRAM to VCORE spread. */
+	if (max_t(int, old_uv, uv) > VSRAM_NO_FLOOR_MAX_UV) {
+		if (mtk_dvfsrc_vcore_uv_table(VCORE_OPP_2) != VCORE_SRAM_FLOOR_UV ||
+		    max_t(int, old_uv, uv) > VCORE_SRAM_FLOOR_UV + VSRAM_TEST_MAX_GAP_UV) {
+			ret = -EOPNOTSUPP;
+			goto out;
+		}
+		if (!mtk_pm_qos_request_active(&vsram_high_floor)) {
+			mtk_pm_qos_add_request(&vsram_high_floor,
+					       MTK_PM_QOS_VCORE_OPP, VCORE_OPP_2);
+			added_floor = true;
+		}
+		gear = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_VCORE_OPP);
+		if (gear < VCORE_OPP_0 || gear > VCORE_OPP_2) {
+			ret = -EAGAIN;
+			goto release_floor;
+		}
+	}
+
 	live_uv = regulator_get_voltage(dvfsrc->vcore_power);
 	if (live_uv < max_t(int, old_uv, uv) - VSRAM_TEST_MAX_GAP_UV ||
 	    live_uv > min_t(int, old_uv, uv) - VSRAM_TEST_HEADROOM_UV) {
 		ret = -EAGAIN;
-		goto out;
+		goto release_floor;
 	}
 
 	ret = regulator_set_voltage(dvfsrc->vsram_test_power, uv, uv);
@@ -427,14 +457,23 @@ static int dvfsrc_set_vsram(struct mtk_dvfsrc *dvfsrc, u32 uv)
 		}
 		if (!ret)
 			ret = -EIO;
-		goto out;
+		goto release_floor;
 	}
+
+	if (uv <= VSRAM_NO_FLOOR_MAX_UV &&
+	    mtk_pm_qos_request_active(&vsram_high_floor))
+		mtk_pm_qos_remove_request(&vsram_high_floor);
 
 	vsram_override_active = uv != VSRAM_TEST_STOCK_UV;
 	if (!vsram_override_active) {
 		devm_regulator_put(dvfsrc->vsram_test_power);
 		dvfsrc->vsram_test_power = NULL;
 	}
+	return 0;
+
+release_floor:
+	if (added_floor && old_uv <= VSRAM_NO_FLOOR_MAX_UV)
+		mtk_pm_qos_remove_request(&vsram_high_floor);
 out:
 	return ret;
 }
