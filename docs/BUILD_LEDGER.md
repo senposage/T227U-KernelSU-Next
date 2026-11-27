@@ -1523,3 +1523,50 @@ FM reception is outside the supported feature list for this device.
   e49376caca08d9fe22429aca4a8e0360a87433dcf1ceb3ca76edce882041c992.
   One Manager APK and existing r9 ramdisk handling. Device
   status: **untested**.
+
+## 2026-11-27 · SM-T225 grabbag test 1
+
+- Branch `codex/t225-kernel-bringup` starts from T227U grabbag
+  `a9708c223`. Source and output checkout paths are
+  `/home/legit-su/t225-public-source` and
+  `/home/legit-su/t225-public-repro-build`.
+- Initial build stopped at missing KernelSU kernel manager headers. The
+  unanchored KernelSU ignore rule had excluded eight sources from Git.
+  `3a6f6fb9c` records the fix and the exact files retrieved from the
+  working T227U checkout. Initial build log
+  `/home/legit-su/t225-20261127-grabbag-build.log`.
+- Kernel changes are in `3a71588d7` and `d2d6c1230`. The active
+  MT6765 speed-bin table supplies the CPU policy bounds and factory
+  calibration indexes. Clock and voltage limits use the established
+  grabbag implementation. The configuration matches T227U #54
+  byte-for-byte, SHA-256
+  `4085b2da0ef7e7f3a9426dab08bbf83cfb3eb4e4c279836a9ef3e5143ece328b`.
+  The build uses Android Clang 11.0.1 and identifies as
+  `4.19.191-28847731-abT225XXSBEYE4`. The successful build log is
+  `/home/legit-su/t225-20261127-grabbag-build-retry.log`.
+- The gate applied 207 CRC updates and verified all 523 expected imports.
+  481 are kernel exports. 42 come from the shared MediaTek reference
+  `wmt_drv.ko` and `wmt_chrdev_wifi.ko`. The native hardened
+  `__check_object_size` export verified at `0x88db9f48`. The four
+  T225-only CRC updates match imports also present in the reference
+  `trace_mmstat.ko`. The gate rejected the raw image as expected.
+  KernelSU-Next 33355 and the Reflex registration linked successfully.
+- Package changes are in `e2d4c7ee8`, `70d360b8e`, `e13db5a4e` and
+  `342e29958`. The installer uses one KernelSU-Next Manager 33457 APK
+  (`gb2c1ad00`) taken byte-for-byte from T227U #54. The model guard
+  rejects T227U, T225N and unverified models. The package copies the
+  T227U #54 boot DTB byte-for-byte. Decompiling and comparing it with
+  the T225 reference boot DTB found changes only in the two CPU OPP
+  tables. The regional DTBO is not included in the ZIP.
+- Host recovery dry run with the bundled MagiskBoot verified the kernel
+  and shared boot DTB after repack, restored original init, removed the
+  three donor init/tuning files plus their import, disabled vendor
+  RamPlus with backup when present, and preserved existing modules
+  during Magisk cleanup. Missing and already-disabled RamPlus paths
+  were tested. Logs and reference copies are under
+  `/home/legit-su/t225-build-audit`.
+- Local test package `E:\T225-GB.zip` SHA-256
+  `8a9f1f92fbc4a9093e879549690ac63281109c29300c6ecc58c28d1cbf888d25`.
+  Image SHA-256
+  `337ce7e505cd4b288630579d8a4e6d65879a06d6d60fc9d310bedcb3c73cb8ce`.
+  SM-T225 hardware boot, Wi-Fi, Bluetooth and LTE are pending.
