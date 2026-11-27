@@ -107,5 +107,5 @@ fi
 
 ui_print " ";
 ui_print "=== SM-T225 KernelSU-Next installed ===";
-ui_print "Installed grabbag using the existing boot DTB.";
+ui_print "Installed grabbag with the shared MT6765 boot DTB.";
 ui_print "Disabled vendor automatic RamPlus; manual ZRAM remains available.";

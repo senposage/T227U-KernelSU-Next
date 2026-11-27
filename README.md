@@ -18,10 +18,12 @@ without applying an override. The verified image is
 `arch/arm64/boot/Image.t225-vendor.gz` under the build output directory.
 
 Use `anykernel/` with the verified image renamed to `Image.gz`, the existing
-AnyKernel tools, and one matching KernelSU-Next Manager APK for packaging.
-The installer requires an SM-T225 model match and repacks the device's
-installed boot image using its existing DTB and grabbag's existing
-Magisk transition and vendor RamPlus handling.
+AnyKernel tools, the verified grabbag T227U base DTB, and one matching
+KernelSU-Next Manager APK for packaging. The packaged T227U and T225
+reference base DTBs differ only in CPU operating points. The installer
+requires an SM-T225 model match, uses the grabbag CPU operating points, and
+keeps the device's separate regional DTBO. It uses grabbag's existing Magisk
+transition and vendor RamPlus handling.
 
 grabbag is a custom Android 4.19 kernel for the Samsung Galaxy Tab A7 Lite
 LTE (`SM-T227U`, `gta7lite`). It combines upstream backports with fixes
