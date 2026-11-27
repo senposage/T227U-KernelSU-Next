@@ -1,5 +1,27 @@
 # grabbag
 
+This branch builds a local SM-T225 LTE test image using the
+`4.19.191-28847731-abT225XXSBEYE4` kernel release. The T227U build instructions
+below refer to the separate T227U branch.
+
+```sh
+TOOLCHAIN_BIN=/path/to/android-clang-11/bin \
+T225_VENDOR_MODULES=/path/to/vendor/lib/modules \
+  tools/t225/build_t225.sh
+```
+
+The build checks the 523 CRCs supplied from the stock T225 module imports.
+The 42 connectivity exports come from `wmt_drv.ko` and `wmt_chrdev_wifi.ko`,
+which are read directly by the gate. The test build used matching shared
+MediaTek reference modules. The native hardened usercopy CRC is checked
+without applying an override. The verified image is
+`arch/arm64/boot/Image.t225-vendor.gz` under the build output directory.
+
+Use `anykernel/` with the verified image renamed to `Image.gz`, the existing
+AnyKernel tools, and one matching KernelSU-Next Manager APK for packaging.
+The installer requires an SM-T225 model match and repacks the device's
+installed boot image using its existing DTB and ramdisk.
+
 grabbag is a custom Android 4.19 kernel for the Samsung Galaxy Tab A7 Lite
 LTE (`SM-T227U`, `gta7lite`). It combines upstream backports with fixes
 for this device and targets the T227U vendor ABI and

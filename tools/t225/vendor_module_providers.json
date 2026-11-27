@@ -1,0 +1,128 @@
+{
+  "connsys_log_deinit": [
+    "wmt_drv.ko"
+  ],
+  "connsys_log_get_buf_size": [
+    "wmt_drv.ko"
+  ],
+  "connsys_log_init": [
+    "wmt_drv.ko"
+  ],
+  "connsys_log_read_to_user": [
+    "wmt_drv.ko"
+  ],
+  "connsys_log_register_event_cb": [
+    "wmt_drv.ko"
+  ],
+  "fw_log_wifi_write_log_to_file": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "gConEmiPhyBase": [
+    "wmt_drv.ko"
+  ],
+  "gConEmiSize": [
+    "wmt_drv.ko"
+  ],
+  "get_low_latency_mode": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "get_wifi_standalone_log_mode": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "mtk_wcn_consys_hw_wifi_paldo_ctrl": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_set_connsys_power_off_flag": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_is_ready": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_is_rxqueue_empty": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_receive_data": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_register_event_cb": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_send_data": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_stp_set_bluez": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_adie_workable": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_assert": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_assert_keyword": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_chipid_query": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_co_clock_flag_get": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_func_off": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_func_on": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_ic_info_get": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_mpu_lock_aquire": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_mpu_lock_release": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_msgcb_reg": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_msgcb_unreg": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_psm_ctrl": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_wlan_reg": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wcn_wmt_wlan_unreg": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wmt_get_gps_lna_pin_num": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wmt_gps_mcu_ctrl": [
+    "wmt_drv.ko"
+  ],
+  "mtk_wmt_gps_suspend_ctrl": [
+    "wmt_drv.ko"
+  ],
+  "register_file_buf_handler": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "register_set_p2p_mode_handler": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "update_driver_loaded_status": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "wifi_fwlog_event_func_register": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "wifi_reset_end": [
+    "wmt_chrdev_wifi.ko"
+  ],
+  "wifi_reset_start": [
+    "wmt_chrdev_wifi.ko"
+  ]
+}
