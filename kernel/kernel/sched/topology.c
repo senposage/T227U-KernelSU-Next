@@ -338,7 +338,6 @@ static void sched_energy_set(bool has_eas)
  */
 #define EM_MAX_COMPLEXITY 2048
 
-extern struct cpufreq_governor schedutil_gov;
 static bool build_perf_domains(const struct cpumask *cpu_map)
 {
 	int i, nr_pd = 0, nr_cs = 0, nr_cpus = cpumask_weight(cpu_map);
@@ -370,7 +369,7 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 			goto free;
 		gov = policy->governor;
 		cpufreq_cpu_put(policy);
-		if (gov != &schedutil_gov) {
+		if (!schedutil_compatible_governor(gov)) {
 			if (rd->pd)
 				pr_warn("rd %*pbl: Disabling EAS, schedutil is mandatory\n",
 						cpumask_pr_args(cpu_map));

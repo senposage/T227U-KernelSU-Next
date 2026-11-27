@@ -19,6 +19,26 @@
 #include <trace/events/power.h>
 #include "cpufreq_schedutil.h"
 
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+#include "cpufreq_reflex.h"
+static struct cpufreq_governor reflex_gov;
+#endif
+extern struct cpufreq_governor schedutil_gov;
+
+static bool is_reflex_governor(const struct cpufreq_governor *gov)
+{
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+	return gov == &reflex_gov;
+#else
+	return false;
+#endif
+}
+
+bool schedutil_compatible_governor(const struct cpufreq_governor *gov)
+{
+	return gov == &schedutil_gov || is_reflex_governor(gov);
+}
+
 void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 EXPORT_SYMBOL(cpufreq_notifier_fp);
 
@@ -26,6 +46,9 @@ struct sugov_tunables {
 	struct gov_attr_set	attr_set;
 	unsigned int		up_rate_limit_us;
 	unsigned int		down_rate_limit_us;
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+	unsigned int		latency_weight;
+#endif
 };
 
 struct sugov_policy {
@@ -53,6 +76,9 @@ struct sugov_policy {
 
 	bool			limits_changed;
 	bool			need_freq_update;
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+	unsigned int		reflex_floors[REFLEX_FLOOR_COUNT];
+#endif
 };
 
 struct sugov_cpu {
@@ -67,6 +93,9 @@ struct sugov_cpu {
 	unsigned long		bw_dl;
 	unsigned long		min;
 	unsigned long		max;
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+	struct reflex_sample	reflex_sample;
+#endif
 
 	/* The field below is for single-CPU policies only: */
 #ifdef CONFIG_NO_HZ_COMMON
@@ -75,6 +104,62 @@ struct sugov_cpu {
 };
 
 static DEFINE_PER_CPU(struct sugov_cpu, sugov_cpu);
+
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+static u64 sugov_reflex_interval(const struct sugov_policy *sg_policy)
+{
+	return max_t(s64, READ_ONCE(sg_policy->up_rate_delay_ns), TICK_NSEC);
+}
+
+static void sugov_reflex_sample(struct sugov_cpu *sg_cpu, u64 time)
+{
+	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
+
+	if (unlikely(is_reflex_governor(sg_policy->policy->governor)))
+		reflex_sample_cpu(&sg_cpu->reflex_sample, sg_cpu->cpu, time,
+				  sugov_reflex_interval(sg_policy));
+}
+
+static unsigned long sugov_reflex_util(struct sugov_cpu *sg_cpu,
+		unsigned long util, unsigned long max, unsigned int *floor)
+{
+	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
+	struct cpufreq_policy *policy = sg_policy->policy;
+	struct reflex_sample *sample = &sg_cpu->reflex_sample;
+	unsigned int index, freq;
+	unsigned long cap;
+
+	if (likely(!is_reflex_governor(policy->governor)))
+		return util;
+	if (sg_cpu->cpu != smp_processor_id() && idle_cpu(sg_cpu->cpu))
+		return util;
+
+	cap = uclamp_rq_util_with(cpu_rq(sg_cpu->cpu), max, NULL);
+	index = reflex_floor_index(sample, sugov_reflex_interval(sg_policy));
+	freq = READ_ONCE(sg_policy->reflex_floors[index]);
+	if (cap < max) {
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+		freq = min_t(unsigned long, freq,
+			     map_util_freq_with_margin(cap, policy->cpuinfo.max_freq, max));
+#else
+		freq = min_t(unsigned long, freq,
+			     map_util_freq(cap, policy->cpuinfo.max_freq, max));
+#endif
+	}
+	*floor = max_t(unsigned int, *floor, freq);
+	return max_t(unsigned long, util, min(sample->demand, cap));
+}
+#else
+static inline void sugov_reflex_sample(struct sugov_cpu *sg_cpu, u64 time)
+{
+}
+
+static inline unsigned long sugov_reflex_util(struct sugov_cpu *sg_cpu,
+		unsigned long util, unsigned long max, unsigned int *floor)
+{
+	return util;
+}
+#endif
 
 /************************ Governor internals ***********************/
 
@@ -194,6 +279,11 @@ static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
 #ifdef CONFIG_NONLINEAR_FREQ_CTL
 
 #include "cpufreq_schedutil_plus.c"
+static unsigned int sugov_resolve_next_freq(struct sugov_policy *sg_policy,
+			unsigned long util, unsigned long max, unsigned int floor)
+{
+	return get_next_freq(sg_policy, util, max);
+}
 #else
 /**
  * get_next_freq - Compute a new frequency for a given cpufreq policy.
@@ -217,8 +307,9 @@ static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
  * next_freq (as calculated above) is returned, subject to policy min/max and
  * cpufreq driver limitations.
  */
-static unsigned int get_next_freq(struct sugov_policy *sg_policy,
-				  unsigned long util, unsigned long max)
+static unsigned int sugov_resolve_next_freq(struct sugov_policy *sg_policy,
+				  unsigned long util, unsigned long max,
+				  unsigned int floor)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned int freq = arch_scale_freq_invariant() ?
@@ -230,7 +321,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	freq = map_util_freq(util, freq, max);
 #endif
 
-	freq = clamp_val(freq, policy->min, policy->max);
+	freq = clamp_val(max_t(unsigned int, freq, floor), policy->min, policy->max);
 
 	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
 		return sg_policy->next_freq;
@@ -540,10 +631,12 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	int cid = arch_cpu_cluster_id(policy->cpu);
 	unsigned long util, max;
 	unsigned int next_f;
+	unsigned int floor = 0;
 	bool busy;
 
 	sugov_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
+	sugov_reflex_sample(sg_cpu, time);
 
 	ignore_dl_rate_limit(sg_cpu, sg_policy);
 
@@ -556,7 +649,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	util = sugov_get_util(sg_cpu);
 	max = sg_cpu->max;
 	util = sugov_iowait_apply(sg_cpu, time, util, max);
-	next_f = get_next_freq(sg_policy, util, max);
+	util = sugov_reflex_util(sg_cpu, util, max, &floor);
+	next_f = sugov_resolve_next_freq(sg_policy, util, max, floor);
 	/*
 	 * Do not reduce the frequency if the CPU has not been idle
 	 * recently, as the reduction is likely to be premature then.
@@ -601,6 +695,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 	unsigned long util = 0, max = 1;
 	unsigned int j;
 	unsigned int next_f;
+	unsigned int floor = 0;
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	int cid;
 #endif
@@ -612,6 +707,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		j_util = sugov_get_util(j_sg_cpu);
 		j_max = j_sg_cpu->max;
 		j_util = sugov_iowait_apply(j_sg_cpu, time, j_util, j_max);
+		j_util = sugov_reflex_util(j_sg_cpu, j_util, j_max, &floor);
 
 #ifdef CONFIG_UCLAMP_TASK
 		trace_schedutil_uclamp_util(j, j_util);
@@ -623,7 +719,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		}
 	}
 
-	next_f = get_next_freq(sg_policy, util, max);
+	next_f = sugov_resolve_next_freq(sg_policy, util, max, floor);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	cid = arch_cpu_cluster_id(policy->cpu);
@@ -645,6 +741,7 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 
 	sugov_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
+	sugov_reflex_sample(sg_cpu, time);
 
 	ignore_dl_rate_limit(sg_cpu, sg_policy);
 
@@ -709,7 +806,7 @@ static void sugov_irq_work(struct irq_work *irq_work)
 
 /************************** sysfs interface ************************/
 
-static struct sugov_tunables *global_tunables;
+static struct sugov_tunables *global_tunables[2];
 static DEFINE_MUTEX(global_tunables_lock);
 
 static inline struct sugov_tunables *to_sugov_tunables(struct gov_attr_set *attr_set)
@@ -795,9 +892,65 @@ static struct kobj_type sugov_tunables_ktype = {
 	.sysfs_ops = &governor_sysfs_ops,
 };
 
-/********************** cpufreq governor interface *********************/
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+static void sugov_rebuild_reflex_floors(struct sugov_policy *sg_policy)
+{
+	if (is_reflex_governor(sg_policy->policy->governor))
+		reflex_speed_floors(sg_policy->policy,
+			READ_ONCE(sg_policy->tunables->latency_weight),
+			sg_policy->reflex_floors);
+}
 
-struct cpufreq_governor schedutil_gov;
+static ssize_t latency_weight_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	return sprintf(buf, "%u\n", READ_ONCE(tunables->latency_weight));
+}
+
+static ssize_t latency_weight_store(struct gov_attr_set *attr_set,
+				    const char *buf, size_t count)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+	struct sugov_policy *sg_policy;
+	unsigned int weight;
+
+	if (kstrtouint(buf, 10, &weight) || weight > REFLEX_WEIGHT_MAX)
+		return -EINVAL;
+
+	WRITE_ONCE(tunables->latency_weight, weight);
+	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook)
+		sugov_rebuild_reflex_floors(sg_policy);
+	return count;
+}
+
+static ssize_t version_show(struct gov_attr_set *attr_set, char *buf)
+{
+	return sprintf(buf, "0.4.0-t227u\n");
+}
+
+static struct governor_attr reflex_latency_weight = __ATTR_RW(latency_weight);
+static struct governor_attr reflex_version = __ATTR_RO(version);
+
+static struct attribute *reflex_attributes[] = {
+	&up_rate_limit_us.attr,
+	&down_rate_limit_us.attr,
+	&reflex_latency_weight.attr,
+	&reflex_version.attr,
+	NULL
+};
+
+static struct kobj_type reflex_tunables_ktype = {
+	.default_attrs = reflex_attributes,
+	.sysfs_ops = &governor_sysfs_ops,
+};
+#else
+static inline void sugov_rebuild_reflex_floors(struct sugov_policy *sg_policy)
+{
+}
+#endif
+
+/********************** cpufreq governor interface *********************/
 
 int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
 {
@@ -810,8 +963,10 @@ int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	if (!policy)
 		return -EINVAL;
 
-	if (policy->governor != &schedutil_gov)
+	if (!schedutil_compatible_governor(policy->governor)) {
+		cpufreq_cpu_put(policy);
 		return -ENOENT;
+	}
 
 	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
@@ -850,8 +1005,10 @@ int schedutil_set_up_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	if (!policy)
 		return -EINVAL;
 
-	if (policy->governor != &schedutil_gov)
+	if (!schedutil_compatible_governor(policy->governor)) {
+		cpufreq_cpu_put(policy);
 		return -ENOENT;
+	}
 
 	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
@@ -964,19 +1121,13 @@ static struct sugov_tunables *sugov_tunables_alloc(struct sugov_policy *sg_polic
 	struct sugov_tunables *tunables;
 
 	tunables = kzalloc(sizeof(*tunables), GFP_KERNEL);
-	if (tunables) {
+	if (tunables)
 		gov_attr_set_init(&tunables->attr_set, &sg_policy->tunables_hook);
-		if (!have_governor_per_policy())
-			global_tunables = tunables;
-	}
 	return tunables;
 }
 
 static void sugov_tunables_free(struct sugov_tunables *tunables)
 {
-	if (!have_governor_per_policy())
-		global_tunables = NULL;
-
 	kfree(tunables);
 }
 
@@ -984,6 +1135,9 @@ static int sugov_init(struct cpufreq_policy *policy)
 {
 	struct sugov_policy *sg_policy;
 	struct sugov_tunables *tunables;
+	bool reflex = is_reflex_governor(policy->governor);
+	struct sugov_tunables **global = &global_tunables[reflex];
+	struct kobj_type *ktype = &sugov_tunables_ktype;
 	int ret = 0;
 
 	/* State should be equivalent to EXIT */
@@ -1006,15 +1160,15 @@ static int sugov_init(struct cpufreq_policy *policy)
 
 	mutex_lock(&global_tunables_lock);
 
-	if (global_tunables) {
+	if (*global) {
 		if (WARN_ON(have_governor_per_policy())) {
 			ret = -EINVAL;
 			goto stop_kthread;
 		}
 		policy->governor_data = sg_policy;
-		sg_policy->tunables = global_tunables;
+		sg_policy->tunables = *global;
 
-		gov_attr_set_get(&global_tunables->attr_set, &sg_policy->tunables_hook);
+		gov_attr_set_get(&(*global)->attr_set, &sg_policy->tunables_hook);
 		goto out;
 	}
 
@@ -1026,15 +1180,23 @@ static int sugov_init(struct cpufreq_policy *policy)
 
 	tunables->up_rate_limit_us = cpufreq_policy_transition_delay_us(policy);
 	tunables->down_rate_limit_us = cpufreq_policy_transition_delay_us(policy);
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+	if (reflex) {
+		tunables->latency_weight = REFLEX_WEIGHT_DEFAULT;
+		ktype = &reflex_tunables_ktype;
+	}
+#endif
 
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
 
-	ret = kobject_init_and_add(&tunables->attr_set.kobj, &sugov_tunables_ktype,
+	ret = kobject_init_and_add(&tunables->attr_set.kobj, ktype,
 				   get_governor_parent_kobj(policy), "%s",
-				   schedutil_gov.name);
+				   policy->governor->name);
 	if (ret)
 		goto fail;
+	if (!have_governor_per_policy())
+		*global = tunables;
 
 out:
 	mutex_unlock(&global_tunables_lock);
@@ -1069,8 +1231,11 @@ static void sugov_exit(struct cpufreq_policy *policy)
 
 	count = gov_attr_set_put(&tunables->attr_set, &sg_policy->tunables_hook);
 	policy->governor_data = NULL;
-	if (!count)
+	if (!count) {
+		if (!have_governor_per_policy())
+			global_tunables[is_reflex_governor(policy->governor)] = NULL;
 		sugov_tunables_free(tunables);
+	}
 
 	mutex_unlock(&global_tunables_lock);
 
@@ -1089,6 +1254,7 @@ static int sugov_start(struct cpufreq_policy *policy)
 	sg_policy->down_rate_delay_ns =
 		sg_policy->tunables->down_rate_limit_us * NSEC_PER_USEC;
 	update_min_rate_limit_ns(sg_policy);
+	sugov_rebuild_reflex_floors(sg_policy);
 	sg_policy->last_freq_update_time	= 0;
 	sg_policy->next_freq			= 0;
 	sg_policy->work_in_progress		= false;
@@ -1145,6 +1311,7 @@ static void sugov_limits(struct cpufreq_policy *policy)
 		mutex_unlock(&sg_policy->work_lock);
 	}
 
+	sugov_rebuild_reflex_floors(sg_policy);
 	sg_policy->limits_changed = true;
 }
 
@@ -1158,6 +1325,25 @@ struct cpufreq_governor schedutil_gov = {
 	.stop			= sugov_stop,
 	.limits			= sugov_limits,
 };
+
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+static struct cpufreq_governor reflex_gov = {
+	.name			= "reflex",
+	.owner			= THIS_MODULE,
+	.dynamic_switching	= true,
+	.init			= sugov_init,
+	.exit			= sugov_exit,
+	.start			= sugov_start,
+	.stop			= sugov_stop,
+	.limits			= sugov_limits,
+};
+
+static int __init reflex_register(void)
+{
+	return cpufreq_register_governor(&reflex_gov);
+}
+fs_initcall(reflex_register);
+#endif
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
 struct cpufreq_governor *cpufreq_default_governor(void)
@@ -1193,7 +1379,8 @@ static DECLARE_WORK(rebuild_sd_work, rebuild_sd_workfn);
 void sched_cpufreq_governor_change(struct cpufreq_policy *policy,
 				  struct cpufreq_governor *old_gov)
 {
-	if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {
+	if (schedutil_compatible_governor(old_gov) ||
+	    schedutil_compatible_governor(policy->governor)) {
 		/*
 		 * When called from the cpufreq_register_driver() path, the
 		 * cpu_hotplug_lock is already held, so use a work item to

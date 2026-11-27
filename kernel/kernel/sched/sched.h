@@ -2488,6 +2488,11 @@ static inline unsigned long cpu_util_cfs(struct rq *rq)
 
 #ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
 
+bool schedutil_compatible_governor(const struct cpufreq_governor *gov);
+#ifdef CONFIG_CPU_FREQ_GOV_REFLEX
+u64 cpufreq_pelt_decay(u64 value, u64 delta_ns);
+#endif
+
 unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 				 unsigned long max, enum schedutil_type type,
 				 struct task_struct *p);

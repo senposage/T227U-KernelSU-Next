@@ -209,6 +209,16 @@ config CPU_FREQ_GOV_SCHEDUTIL
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_REFLEX
+	bool "'reflex' cpufreq policy governor"
+	depends on CPU_FREQ_GOV_SCHEDUTIL && !NONLINEAR_FREQ_CTL
+	help
+	  Use measured CPU demand alongside schedutil's utilization to raise
+	  frequency more quickly when short interactive workloads follow idle.
+	  The governor uses the existing cpufreq driver and policy limits.
+
+	  If in doubt, say N.
+
 comment "CPU frequency scaling drivers"
 
 config CPUFREQ_DT
